@@ -1,28 +1,28 @@
 {
   "name": "靈感收集器",
   "short_name": "靈感",
-  "description": "把靈感網址、分類、標籤與縮圖同步到 Google Sheet 的個人收藏工具。",
-  "start_url": "./",
-  "scope": "./",
+  "description": "把靈感網址、分類、標籤與縮圖持續保存在自己的裝置。",
+  "start_url": "/for-inspiration/",
+  "scope": "/for-inspiration/",
   "display": "standalone",
-  "background_color": "#0D0C0B",
-  "theme_color": "#0D0C0B",
+  "background_color": "#f6f5f1",
+  "theme_color": "#f6f5f1",
   "orientation": "portrait",
   "icons": [
     {
-      "src": "./icons/icon.svg",
+      "src": "/for-inspiration/icons/icon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any maskable"
     },
     {
-      "src": "./icons/icon-192.png",
+      "src": "/for-inspiration/icons/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "./icons/icon-512.png",
+      "src": "/for-inspiration/icons/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
