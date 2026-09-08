@@ -196,7 +196,7 @@ header{position:sticky;top:0;z-index:40;background:linear-gradient(var(--bg) 72%
     <div class="htop">
       <div class="logo" id="brand">Inspiration <em>collector</em></div>
       <div class="hbtns">
-        <span id="sync" title="點擊做連線診斷"></span>
+        <span id="sync" title="點擊看資料設定"></span>
         <button class="ico" id="btnShuffle" aria-label="重新排列"><svg viewBox="0 0 24 24"><path d="M3 6h4l4 12h6M3 18h4l2-6"/><path d="M17 4l4 2-4 2M17 16l4 2-4 2"/></svg></button>
         <button class="ico" id="btnCats" aria-label="管理分類"><svg viewBox="0 0 24 24"><path d="M3 7h18M3 12h18M3 17h11"/></svg></button>
         <button class="ico" id="btnData" aria-label="設定"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg></button>
@@ -219,7 +219,9 @@ header{position:sticky;top:0;z-index:40;background:linear-gradient(var(--bg) 72%
 
 <script>
 /* =====================================================================
-   儲存層 adapter — 唯一跟 Google Sheet 溝通的地方
+   儲存層 adapter
+   資料一律先寫進這台裝置的 localStorage，關掉重開還在。
+   接上 Google Sheet 只是選用的同步，用來跨裝置和備份。
    ===================================================================== */
 const CFG={
   get api(){return localStorage.getItem('inspo:api')||''},
@@ -256,12 +258,18 @@ function netError(e){
 }
 
 const Store={
+  /** 有沒有接上 Google Sheet。沒接上不影響本機儲存。 */
   configured(){return !!CFG.api&&!!CFG.token},
+  /** 寫進本機。回傳 false 代表 localStorage 空間滿了。 */
+  writeLocal(links,cats){
+    try{localStorage.setItem(CACHE,JSON.stringify({links,cats}));return true;}
+    catch(e){return false;}
+  },
   async load(){
     let d;
     try{d=await readJson(await fetch(CFG.api+'?token='+encodeURIComponent(CFG.token),{redirect:'follow'}));}
     catch(e){throw netError(e);}
-    localStorage.setItem(CACHE,JSON.stringify({links:d.links,cats:d.cats}));return d;
+    this.writeLocal(d.links,d.cats);return d;
   },
   cached(){try{return JSON.parse(localStorage.getItem(CACHE))}catch(e){return null}},
   async post(payload){
@@ -272,8 +280,7 @@ const Store={
         body:JSON.stringify(Object.assign({token:CFG.token},payload))}));
     }catch(e){throw netError(e);}
   },
-  async save(links,cats){const d=await this.post({action:'save',links,cats});
-    localStorage.setItem(CACHE,JSON.stringify({links,cats}));return d;},
+  async save(links,cats){return await this.post({action:'save',links,cats});},
   async upload(dataUrl,name){return (await this.post({action:'upload',data:dataUrl,name})).url;},
   async thumbs(){
     try{return (await readJson(await fetch(
@@ -325,22 +332,30 @@ function img(l){return l.thumb?`<img src="${esc(l.thumb)}" alt="" loading="lazy"
 
 let saveT=null;
 function save(){
-  clearTimeout(saveT);setSync('未儲存');
+  clearTimeout(saveT);
+  if(!Store.writeLocal(state.links,state.cats)){
+    setSync('裝置空間滿了',true);
+    lastError='localStorage 寫不進去，通常是本機縮圖太多';
+    toast('這台裝置的儲存空間滿了，移除幾張縮圖或接上 Google Sheet');
+    return;
+  }
+  if(!Store.configured()){setSync('已存本機');return;}
+  setSync('待同步');
   saveT=setTimeout(async()=>{
-    if(!Store.configured()){setSync('未連線',true);lastError='還沒填連線設定';return;}
-    setSync('儲存中…');
+    setSync('同步中…');
     try{await Store.save(state.links,state.cats);setSync('已同步');lastError='';}
-    catch(e){setSync('儲存失敗',true);lastError=e.message;toast(e.message);}
+    catch(e){setSync('同步失敗',true);lastError=e.message;toast(e.message);}
   },700);
 }
 
-function fileToThumb(file){return new Promise((res,rej)=>{
+/** 本機縮圖直接以 data URL 存在 localStorage，所以壓得比雲端版本小 */
+function fileToThumb(file,max,quality){return new Promise((res,rej)=>{
   const fr=new FileReader();
   fr.onload=()=>{const im=new Image();
-    im.onload=()=>{const max=900;let w=im.width,h=im.height;
+    im.onload=()=>{let w=im.width,h=im.height;
       const s=Math.min(1,max/Math.max(w,h));w=Math.round(w*s);h=Math.round(h*s);
       const c=document.createElement('canvas');c.width=w;c.height=h;
-      c.getContext('2d').drawImage(im,0,0,w,h);res(c.toDataURL('image/jpeg',.8));};
+      c.getContext('2d').drawImage(im,0,0,w,h);res(c.toDataURL('image/jpeg',quality));};
     im.onerror=rej;im.src=fr.result;};
   fr.onerror=rej;fr.readAsDataURL(file);});}
 
@@ -349,19 +364,11 @@ function render(){
   const m=document.getElementById('main');
   const q=document.getElementById('q').value.trim();
   document.body.classList.toggle('sorting',view.sorting);
-  if(!Store.configured())m.innerHTML=viewSetupPrompt();
-  else if(q)m.innerHTML=viewSearch(q);
+  if(q)m.innerHTML=viewSearch(q);
   else if(view.name==='home')m.innerHTML=viewHome();
   else if(view.name==='review')m.innerHTML=viewReview();
   else m.innerHTML=viewFolder();
   bind(m);
-}
-
-function viewSetupPrompt(){
-  return `<div class="empty" style="padding-top:70px">
-    <div class="big">先接上你的 Google Sheet</div>
-    <p>填入 Apps Script 部署後的網址和你自己設的 token。</p>
-    <button class="chip" data-setup="1">開始設定</button></div>`;
 }
 
 function bannerHTML(){
@@ -466,7 +473,8 @@ function catPicker(sel){
 }
 
 function setupSheet(){
-  openSheet(`<h2>連線設定</h2>
+  openSheet(`<h2>接上 Google Sheet</h2>
+    <p style="font-size:13.5px;color:var(--ink2);margin:0 0 16px">這一步是選用的。不填也能一直用，只是靈感只留在這台裝置。</p>
     <div class="fld"><label class="mono">Apps Script 網頁應用程式網址</label>
       <input id="sApi" placeholder="https://script.google.com/macros/s/…/exec" value="${esc(CFG.api)}"></div>
     <div class="fld"><label class="mono">Token</label>
@@ -474,13 +482,30 @@ function setupSheet(){
     <p class="mono">Token 不是 Google 給的，是你自己在 Code.gs 裡設的字串。兩項只存在這台裝置，不會進 git。</p>
     <div class="actions"><button class="btn" data-close="1">取消</button><button class="btn pri" id="sGo">測試並連線</button></div>`);
   document.getElementById('sGo').onclick=async()=>{
-    CFG.api=document.getElementById('sApi').value.trim();
-    CFG.token=document.getElementById('sTok').value.trim();
-    if(!CFG.api||!CFG.token){toast('兩欄都要填');return;}
+    const api=document.getElementById('sApi').value.trim();
+    const token=document.getElementById('sTok').value.trim();
+    if(!api||!token){toast('兩欄都要填');return;}
+    const localLinks=state.links.slice(),localCats=state.cats.slice();
+    CFG.api=api;CFG.token=token;
     setSync('連線中…');
-    try{const d=await Store.load();
-      state.links=d.links;state.cats=(d.cats&&d.cats.length)?d.cats:state.cats;
-      setSync('已同步');lastError='';closeSheet();render();toast('連上了');}
+    try{
+      const d=await Store.load();
+      const remote=d.links||[];
+      if(!remote.length&&localLinks.length){
+        // Sheet 還是空的：把這台裝置已有的靈感推上去，不要被空資料蓋掉
+        await Store.save(localLinks,localCats);
+        Store.writeLocal(localLinks,localCats);
+        toast(`已把本機 ${localLinks.length} 筆靈感上傳到 Sheet`);
+      }else if(remote.length&&localLinks.length&&
+               !confirm(`Sheet 上有 ${remote.length} 筆靈感，這台裝置有 ${localLinks.length} 筆。\n按確定會改用 Sheet 上的資料。`)){
+        CFG.api='';CFG.token='';
+        Store.writeLocal(localLinks,localCats);
+        setSync('已存本機');return;
+      }else{
+        state.links=remote;state.cats=(d.cats&&d.cats.length)?d.cats:state.cats;
+        toast('連上了');
+      }
+      setSync('已同步');lastError='';closeSheet();render();}
     catch(e){setSync('連線失敗',true);lastError=e.message;diagSheet();}
   };
 }
@@ -544,7 +569,7 @@ function editSheet(id){
     openSheet(`<h2>編輯靈感</h2>
       <div class="thumbedit" id="eThumb"><span class="mono" style="position:absolute">點擊上傳縮圖</span>
         ${img(l)}<div class="hint">換一張</div></div>
-      <div class="bar" style="margin-top:10px"><button class="chip" id="ePick">從雲端資料夾挑</button>
+      <div class="bar" style="margin-top:10px">${Store.configured()?'<button class="chip" id="ePick">從雲端資料夾挑</button>':''}
         <button class="chip" id="eThumbUrl">用圖片網址</button>
         ${l.thumb?'<button class="chip" id="eThumbClear">移除縮圖</button>':''}</div>
       <div class="fld"><label class="mono">名稱</label><input id="eTitle" value="${esc(l.title)}"></div>
@@ -558,12 +583,20 @@ function editSheet(id){
         <button class="btn pri" id="eSave">儲存</button></div>`);
     document.getElementById('eThumb').onclick=()=>{
       const inp=document.createElement('input');inp.type='file';inp.accept='image/*';
-      inp.onchange=async()=>{if(!inp.files[0])return;toast('上傳到雲端資料夾…');
-        try{const d=await fileToThumb(inp.files[0]);
-          l.thumb=await Store.upload(d,l.id);thumbFiles=null;save();draw();render();toast('縮圖已更新');}
-        catch(e){toast('上傳失敗：'+e.message);}};
+      inp.onchange=async()=>{if(!inp.files[0])return;
+        try{
+          if(Store.configured()){
+            toast('上傳到雲端資料夾…');
+            l.thumb=await Store.upload(await fileToThumb(inp.files[0],900,.8),l.id);
+            thumbFiles=null;
+          }else{
+            l.thumb=await fileToThumb(inp.files[0],520,.7);
+          }
+          save();draw();render();toast('縮圖已更新');}
+        catch(e){toast('縮圖失敗：'+e.message);}};
       inp.click();};
-    document.getElementById('ePick').onclick=()=>pickSheet(l,draw);
+    const pick=document.getElementById('ePick');
+    if(pick)pick.onclick=()=>pickSheet(l,draw);
     document.getElementById('eThumbUrl').onclick=()=>{const v=prompt('貼上圖片網址');
       if(v){l.thumb=normUrl(v);save();draw();render();}};
     const clr=document.getElementById('eThumbClear');
@@ -673,28 +706,58 @@ function bulkSheet(){
 }
 
 function dataSheet(){
+  const linked=Store.configured();
   openSheet(`<h2>資料</h2>
-    <p style="font-size:13.5px;color:var(--ink2);margin:0 0 16px">資料寫在你的 Google Sheet，縮圖存在指定的 Drive 資料夾。
-      你也可以直接在試算表貼上網址，只要填 url 欄，重新讀取就會出現。</p>
-    <div class="bar"><button class="chip" id="dReload">重新從 Sheet 讀取</button>
-      <button class="chip" id="dDiag">連線診斷</button>
-      <button class="chip" id="dSetup">連線設定</button>
-      <button class="chip" id="dJson">JSON 備份</button></div>
-    <p class="mono" style="margin-top:16px">目前 ${state.links.length} 筆靈感 · ${state.cats.length} 個分類</p>
+    <p style="font-size:13.5px;color:var(--ink2);margin:0 0 16px">${linked
+      ? '資料同時存在這台裝置和你的 Google Sheet，縮圖放在指定的 Drive 資料夾。'
+      : '資料存在這台裝置的瀏覽器裡，關掉重開都還在。想跨裝置或多一份備份，才需要接 Google Sheet。'}</p>
+    <div class="bar">
+      <button class="chip" id="dJson">下載 JSON 備份</button>
+      <button class="chip" id="dImport">從 JSON 匯入</button></div>
+    <div class="bar" style="margin-top:10px">
+      ${linked?`<button class="chip" id="dReload">重新從 Sheet 讀取</button>
+        <button class="chip" id="dDiag">連線診斷</button>
+        <button class="chip" id="dUnlink">中斷同步</button>`
+      :`<button class="chip" id="dSetup">接上 Google Sheet（選用）</button>`}</div>
+    <p class="mono" style="margin-top:16px">目前 ${state.links.length} 筆靈感 · ${state.cats.length} 個分類 · ${linked?'本機 + Google Sheet':'只存這台裝置'}</p>
+    ${linked?'':'<p class="mono">清掉瀏覽器資料會一起清掉靈感，建議偶爾下載一份 JSON。</p>'}
     <div class="actions"><button class="btn pri" data-close="1">完成</button></div>`);
-  document.getElementById('dReload').onclick=async()=>{
-    setSync('讀取中…');thumbFiles=null;
-    try{const d=await Store.load();
-      state.links=d.links;state.cats=(d.cats&&d.cats.length)?d.cats:state.cats;
-      setSync('已同步');lastError='';closeSheet();render();toast('已重新讀取');}
-    catch(e){setSync('讀取失敗',true);lastError=e.message;diagSheet();}};
-  document.getElementById('dDiag').onclick=diagSheet;
-  document.getElementById('dSetup').onclick=setupSheet;
   document.getElementById('dJson').onclick=()=>{
     const b=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});
     const a=document.createElement('a');a.href=URL.createObjectURL(b);
     a.download='inspiration-collector.json';a.click();
     setTimeout(()=>URL.revokeObjectURL(a.href),1500);toast('備份已下載');};
+  document.getElementById('dImport').onclick=()=>{
+    const inp=document.createElement('input');inp.type='file';inp.accept='application/json,.json';
+    inp.onchange=()=>{const f=inp.files[0];if(!f)return;
+      const fr=new FileReader();
+      fr.onload=()=>{
+        let d;
+        try{d=JSON.parse(fr.result);}catch(e){toast('這個檔案不是有效的 JSON');return;}
+        if(!d||!Array.isArray(d.links)){toast('檔案裡找不到 links 資料');return;}
+        if(!confirm(`匯入 ${d.links.length} 筆靈感，會覆蓋目前的 ${state.links.length} 筆。要繼續嗎？`))return;
+        state.links=d.links;
+        if(Array.isArray(d.cats)&&d.cats.length)state.cats=d.cats;
+        save();closeSheet();shuffleSeed=Date.now();render();toast('已匯入');};
+      fr.onerror=()=>toast('檔案讀不到');
+      fr.readAsText(f);};
+    inp.click();};
+  const reload=document.getElementById('dReload');
+  if(reload)reload.onclick=async()=>{
+    setSync('讀取中…');thumbFiles=null;
+    try{const d=await Store.load();
+      state.links=d.links;state.cats=(d.cats&&d.cats.length)?d.cats:state.cats;
+      setSync('已同步');lastError='';closeSheet();render();toast('已重新讀取');}
+    catch(e){setSync('讀取失敗',true);lastError=e.message;diagSheet();}};
+  const diag=document.getElementById('dDiag');
+  if(diag)diag.onclick=diagSheet;
+  const setup=document.getElementById('dSetup');
+  if(setup)setup.onclick=setupSheet;
+  const unlink=document.getElementById('dUnlink');
+  if(unlink)unlink.onclick=()=>{
+    if(!confirm('中斷跟 Google Sheet 的同步？\n靈感會留在這台裝置，Sheet 上的資料也不會被刪。'))return;
+    CFG.api='';CFG.token='';thumbFiles=null;
+    setSync('已存本機');lastError='';closeSheet();render();toast('已改回只存本機');};
 }
 
 /* ------------------------------------------------------- drag reorder */
@@ -722,7 +785,6 @@ function endDrag(){
 /* ------------------------------------------------------------- events */
 function bind(root){
   root.onclick=e=>{
-    if(e.target.closest('[data-setup]')){setupSheet();return;}
     const go=e.target.closest('[data-go]');
     if(go){if(go.dataset.go==='home')view={name:'home',cat:null,size:view.size,tags:[],sorting:false};
       else view.name='review';render();return;}
@@ -756,10 +818,10 @@ sheetBody.addEventListener('click',e=>{
   const u=e.target.closest('[data-open-url]');
   if(u)window.open(u.dataset.openUrl,'_blank','noopener');
 });
-document.getElementById('fab').onclick=()=>{Store.configured()?addSheet(''):setupSheet();};
-document.getElementById('btnCats').onclick=()=>{Store.configured()?catSheet():setupSheet();};
+document.getElementById('fab').onclick=()=>addSheet('');
+document.getElementById('btnCats').onclick=catSheet;
 document.getElementById('btnData').onclick=dataSheet;
-document.getElementById('sync').onclick=diagSheet;
+document.getElementById('sync').onclick=()=>{Store.configured()?diagSheet():dataSheet();};
 document.getElementById('btnShuffle').onclick=()=>{shuffleSeed=Date.now();
   if(view.name!=='home'){view.name='home';view.cat=null;}render();};
 document.getElementById('brand').onclick=()=>{
@@ -770,15 +832,15 @@ document.getElementById('q').oninput=()=>{clearTimeout(qT);qT=setTimeout(render,
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeSheet();});
 window.addEventListener('paste',e=>{
   if(document.activeElement&&/INPUT|TEXTAREA/.test(document.activeElement.tagName))return;
-  if(sheet.classList.contains('on')||!Store.configured())return;
+  if(sheet.classList.contains('on'))return;
   const t=(e.clipboardData||window.clipboardData).getData('text');
   if(t&&/^(https?:\/\/|www\.)/i.test(t.trim()))addSheet(t.trim());});
 
 (async()=>{
   const c=Store.cached();
-  if(c){state.links=c.links||[];if(c.cats&&c.cats.length)state.cats=c.cats;render();setSync('離線資料');}
-  else render();
-  if(!Store.configured())return;
+  if(c){state.links=c.links||[];if(c.cats&&c.cats.length)state.cats=c.cats;}
+  render();
+  if(!Store.configured()){setSync('已存本機');return;}
   setSync('讀取中…');
   try{const d=await Store.load();
     state.links=d.links;state.cats=(d.cats&&d.cats.length)?d.cats:state.cats;
