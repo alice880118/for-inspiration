@@ -52,6 +52,8 @@ const buttonStyle: CSSProperties = {
   font: "inherit",
   fontSize: 14,
   fontWeight: 500,
+  whiteSpace: "nowrap",
+  flexShrink: 0,
   cursor: "pointer",
 };
 
@@ -80,7 +82,7 @@ const inputStyle: CSSProperties = {
   background: colors.panel,
   color: colors.ink,
   font: "inherit",
-  fontSize: 15,
+  fontSize: 16,
   outline: "none",
 };
 
@@ -129,6 +131,10 @@ function guessTitle(url: string): string {
   } catch {
     return url;
   }
+}
+
+function screenshotUrl(url: string): string {
+  return `https://image.thum.io/get/width/1200/crop/800/noanimate/${normalizeUrl(url)}`;
 }
 
 function initial(title: string): string {
@@ -198,9 +204,8 @@ function BaseDialog({
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Backdrop
+          className="sheet-backdrop"
           style={{
-            position: "fixed",
-            inset: 0,
             zIndex: 100,
             background: "rgb(0 0 0 / 42%)",
           }}
@@ -264,11 +269,9 @@ function BaseDrawer({
     <Drawer.Root open={open} onOpenChange={onOpenChange}>
       <Drawer.Portal>
         <Drawer.Backdrop
+          className="sheet-backdrop"
           style={(state) => ({
-            position: "fixed",
-            inset: 0,
             zIndex: 100,
-            minHeight: "100dvh",
             background: "rgb(0 0 0 / 42%)",
             opacity:
               state.transitionStatus === "starting" ||
@@ -460,6 +463,7 @@ function LinkDialog({
   onClose,
   onSave,
   onDelete,
+  onAddCategory,
 }: {
   open: boolean;
   link: InspirationLink | null;
@@ -468,12 +472,15 @@ function LinkDialog({
   onClose: () => void;
   onSave: (link: InspirationLink) => void;
   onDelete: (id: string) => void;
+  onAddCategory: (name: string) => Category;
 }) {
   const [url, setUrl] = useState("");
   const [title, setTitle] = useState("");
   const [selected, setSelected] = useState<string[]>(["others"]);
   const [tags, setTags] = useState("");
   const [thumb, setThumb] = useState("");
+  const [newCategory, setNewCategory] = useState("");
+  const [capturing, setCapturing] = useState(false);
 
   useEffect(() => {
     const normalized = normalizeUrl(initialUrl);
@@ -482,6 +489,8 @@ function LinkDialog({
     setSelected(link?.cats?.length ? link.cats : ["others"]);
     setTags(link?.tags?.join(", ") ?? "");
     setThumb(link?.thumb ?? "");
+    setNewCategory("");
+    setCapturing(false);
   }, [initialUrl, link, open]);
 
   function submit(event: FormEvent) {
@@ -516,6 +525,54 @@ function LinkDialog({
     if (file) {
       setThumb(await imageToDataUrl(file));
     }
+  }
+
+  async function captureHomepage() {
+    const normalized = normalizeUrl(url);
+    if (!normalized) {
+      window.alert("請先輸入網址。");
+      return;
+    }
+
+    const previewUrl = screenshotUrl(normalized);
+    setCapturing(true);
+    try {
+      const response = await fetch(previewUrl);
+      if (!response.ok) {
+        throw new Error("Screenshot service failed");
+      }
+      const blob = await response.blob();
+      const file = new File([blob], "homepage-preview.jpg", {
+        type: blob.type || "image/jpeg",
+      });
+      setThumb(await imageToDataUrl(file));
+    } catch {
+      // Some screenshot responses cannot be read by JavaScript because of CORS.
+      // Keep the generated URL as a usable remote preview in that case.
+      const available = await new Promise<boolean>((resolve) => {
+        const preview = new Image();
+        preview.onload = () => resolve(true);
+        preview.onerror = () => resolve(false);
+        preview.src = previewUrl;
+      });
+      if (available) {
+        setThumb(previewUrl);
+      } else {
+        window.alert("目前無法產生這個網站的預覽，請改用選擇圖片。");
+      }
+    } finally {
+      setCapturing(false);
+    }
+  }
+
+  function addCategory() {
+    const trimmed = newCategory.trim();
+    if (!trimmed) {
+      return;
+    }
+    const category = onAddCategory(trimmed);
+    setSelected((current) => [...current.filter((id) => id !== "others"), category.id]);
+    setNewCategory("");
   }
 
   return (
@@ -561,6 +618,32 @@ function LinkDialog({
             selected={selected}
             onChange={setSelected}
           />
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              marginTop: 10,
+            }}
+          >
+            <input
+              value={newCategory}
+              onChange={(event) => setNewCategory(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  addCategory();
+                }
+              }}
+              placeholder="直接新增其他分類"
+              aria-label="新增分類名稱"
+              data-base-ui-swipe-ignore=""
+              style={{ ...inputStyle, minWidth: 0 }}
+            />
+            <Button type="button" style={buttonStyle} onClick={addCategory}>
+              新增
+            </Button>
+          </div>
         </div>
         <div style={{ marginBottom: 14 }}>
           <label htmlFor="link-tags" style={labelStyle}>
@@ -601,12 +684,30 @@ function LinkDialog({
                 style={{ display: "none" }}
               />
             </label>
+            <Button
+              type="button"
+              style={buttonStyle}
+              onClick={captureHomepage}
+              disabled={capturing}
+            >
+              {capturing ? "產生預覽中…" : "自動抓取首頁截圖"}
+            </Button>
             {thumb ? (
               <Button type="button" style={buttonStyle} onClick={() => setThumb("")}>
                 移除縮圖
               </Button>
             ) : null}
           </div>
+          <p
+            style={{
+              margin: "7px 0 0",
+              color: colors.faint,
+              fontSize: 11,
+              lineHeight: 1.5,
+            }}
+          >
+            自動截圖會將網址交給 thum.io 產生預覽。
+          </p>
         </div>
         <div
           style={{
@@ -1020,6 +1121,19 @@ export function InspirationCollector() {
     setLinkDialogOpen(false);
   }
 
+  function addCategory(name: string): Category {
+    const category: Category = {
+      id: newId(),
+      name,
+      color: palette[data.cats.length % palette.length],
+    };
+    const othersIndex = data.cats.findIndex((item) => item.id === "others");
+    const cats = [...data.cats];
+    cats.splice(othersIndex < 0 ? cats.length : othersIndex, 0, category);
+    commit({ ...data, cats });
+    return category;
+  }
+
   function deleteLink(id: string) {
     if (!window.confirm("確定刪除這筆靈感？")) {
       return;
@@ -1410,6 +1524,7 @@ export function InspirationCollector() {
         onClose={() => setLinkDialogOpen(false)}
         onSave={saveLink}
         onDelete={deleteLink}
+        onAddCategory={addCategory}
       />
       <CategoryDialog
         open={categoryDialogOpen}

@@ -26,14 +26,20 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <meta charSet="utf-8" />
         <meta
           name="viewport"
-          content="width=device-width, initial-scale=1, viewport-fit=cover"
+          content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover"
         />
         <Meta />
         <Links />
         <style
           dangerouslySetInnerHTML={{
-            __html:
-              "html,body,*{scrollbar-width:none;-ms-overflow-style:none}*::-webkit-scrollbar{width:0;height:0;display:none}",
+            __html: [
+              "html,body{width:100%;max-width:100%;overflow-x:hidden;-webkit-text-size-adjust:100%}",
+              "*,*::before,*::after{box-sizing:border-box;scrollbar-width:none;-ms-overflow-style:none}",
+              "*::-webkit-scrollbar{width:0;height:0;display:none}",
+              "input,textarea,select,button{font-size:16px}",
+              ".sheet-backdrop{position:fixed;inset:0;min-height:100dvh}",
+              "@supports (-webkit-touch-callout: none){.sheet-backdrop{position:absolute}}",
+            ].join(""),
           }}
         />
         <link rel="manifest" href="/for-inspiration/manifest.webmanifest" />
@@ -47,13 +53,19 @@ export function Layout({ children }: { children: React.ReactNode }) {
         style={{
           margin: 0,
           position: "relative",
+          width: "100%",
+          maxWidth: "100%",
+          overflowX: "hidden",
           background: "#f6f5f1",
           color: "#191919",
           fontFamily:
             'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
         }}
       >
-        <div id="app-root" style={{ isolation: "isolate" }}>
+        <div
+          id="app-root"
+          style={{ isolation: "isolate", width: "100%", maxWidth: "100%" }}
+        >
           {children}
         </div>
         <ScrollRestoration />

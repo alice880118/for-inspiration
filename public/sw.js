@@ -1,4 +1,4 @@
-const CACHE_NAME = 'inspiration-collector-v3';
+const CACHE_NAME = 'inspiration-collector-v4';
 const APP_SHELL = [
   '/for-inspiration/',
   '/for-inspiration/index.html',
