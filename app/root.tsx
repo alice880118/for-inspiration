@@ -30,6 +30,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
         />
         <Meta />
         <Links />
+        <style
+          dangerouslySetInnerHTML={{
+            __html:
+              "html,body,*{scrollbar-width:none;-ms-overflow-style:none}*::-webkit-scrollbar{width:0;height:0;display:none}",
+          }}
+        />
         <link rel="manifest" href="/for-inspiration/manifest.webmanifest" />
         <link rel="icon" href="/for-inspiration/icons/icon.svg" />
         <link
@@ -54,6 +60,21 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <Scripts />
       </body>
     </html>
+  );
+}
+
+export function HydrateFallback() {
+  return (
+    <main
+      style={{
+        minHeight: "calc(100dvh - 48px)",
+        display: "grid",
+        placeItems: "center",
+        color: "#6f6f6f",
+      }}
+    >
+      正在載入靈感收集器…
+    </main>
   );
 }
 

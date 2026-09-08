@@ -1,6 +1,7 @@
 import { Button } from "@base-ui/react/button";
 import { Checkbox } from "@base-ui/react/checkbox";
 import { Dialog } from "@base-ui/react/dialog";
+import { Drawer } from "@base-ui/react/drawer";
 import {
   type ChangeEvent,
   type CSSProperties,
@@ -138,6 +139,24 @@ function cloneDefaultCategories(): Category[] {
   return DEFAULT_CATEGORIES.map((category) => ({ ...category }));
 }
 
+function useIsMobile() {
+  const [mobile, setMobile] = useState(() =>
+    typeof window !== "undefined"
+      ? window.matchMedia("(max-width: 720px)").matches
+      : true,
+  );
+
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 720px)");
+    const update = () => setMobile(media.matches);
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
+
+  return mobile;
+}
+
 function SvgIcon({
   path,
   size = 18,
@@ -196,6 +215,7 @@ function BaseDialog({
             width: wide ? "min(680px, calc(100vw - 24px))" : "min(520px, calc(100vw - 24px))",
             maxHeight: "min(760px, calc(100dvh - 24px))",
             overflowY: "auto",
+            scrollbarWidth: "none",
             boxSizing: "border-box",
             border: `1px solid ${colors.line}`,
             borderRadius: 14,
@@ -226,6 +246,124 @@ function BaseDialog({
         </Dialog.Popup>
       </Dialog.Portal>
     </Dialog.Root>
+  );
+}
+
+function BaseDrawer({
+  open,
+  onOpenChange,
+  title,
+  children,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <Drawer.Root open={open} onOpenChange={onOpenChange}>
+      <Drawer.Portal>
+        <Drawer.Backdrop
+          style={(state) => ({
+            position: "fixed",
+            inset: 0,
+            zIndex: 100,
+            minHeight: "100dvh",
+            background: "rgb(0 0 0 / 42%)",
+            opacity:
+              state.transitionStatus === "starting" ||
+              state.transitionStatus === "ending"
+                ? 0
+                : 1,
+            transition: "opacity 280ms ease",
+          })}
+        />
+        <Drawer.Viewport
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 101,
+            display: "flex",
+            alignItems: "flex-end",
+            justifyContent: "center",
+            pointerEvents: "none",
+          }}
+        >
+          <Drawer.Popup
+            style={(state) => ({
+              pointerEvents: "auto",
+              width: "100%",
+              maxHeight: "min(92dvh, 760px)",
+              display: "flex",
+              flexDirection: "column",
+              boxSizing: "border-box",
+              border: `1px solid ${colors.line}`,
+              borderBottom: 0,
+              borderRadius: "18px 18px 0 0",
+              background: colors.panel,
+              color: colors.ink,
+              boxShadow: "0 -16px 48px rgb(0 0 0 / 18%)",
+              outline: "none",
+              paddingBottom: "env(safe-area-inset-bottom)",
+              transform:
+                state.transitionStatus === "starting" ||
+                state.transitionStatus === "ending"
+                  ? "translateY(100%)"
+                  : "translateY(var(--drawer-swipe-movement-y, 0px))",
+              transition:
+                state.swiping === true
+                  ? "none"
+                  : "transform 320ms cubic-bezier(0.32, 0.72, 0, 1)",
+            })}
+          >
+            <div
+              style={{
+                flex: "0 0 auto",
+                padding: "10px 16px 0",
+              }}
+            >
+              <div
+                style={{
+                  width: 40,
+                  height: 4,
+                  borderRadius: 99,
+                  background: colors.line,
+                  margin: "0 auto 12px",
+                }}
+              />
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 12,
+                  marginBottom: 8,
+                }}
+              >
+                <Drawer.Title style={{ margin: 0, fontSize: 20, fontWeight: 650 }}>
+                  {title}
+                </Drawer.Title>
+                <Drawer.Close style={iconButtonStyle} aria-label="關閉">
+                  <SvgIcon path="M6 6l12 12M18 6 6 18" />
+                </Drawer.Close>
+              </div>
+            </div>
+            <Drawer.Content
+              style={{
+                flex: "1 1 auto",
+                minHeight: 0,
+                overflowY: "auto",
+            scrollbarWidth: "none",
+                overscrollBehavior: "contain",
+                padding: "8px 16px 20px",
+              }}
+            >
+              {children}
+            </Drawer.Content>
+          </Drawer.Popup>
+        </Drawer.Viewport>
+      </Drawer.Portal>
+    </Drawer.Root>
   );
 }
 
@@ -369,6 +507,10 @@ function LinkDialog({
     });
   }
 
+  const mobile = useIsMobile();
+  const heading = link ? "編輯靈感" : "新增靈感";
+  const Sheet = mobile ? BaseDrawer : BaseDialog;
+
   async function pickImage(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (file) {
@@ -377,10 +519,10 @@ function LinkDialog({
   }
 
   return (
-    <BaseDialog
+    <Sheet
       open={open}
       onOpenChange={(next) => !next && onClose()}
-      title={link ? "編輯靈感" : "新增靈感"}
+      title={heading}
     >
       <form onSubmit={submit}>
         <div style={{ marginBottom: 14 }}>
@@ -393,8 +535,9 @@ function LinkDialog({
             onChange={(event) => setUrl(event.target.value)}
             placeholder="https://example.com"
             inputMode="url"
-            autoFocus
+            autoFocus={!mobile}
             required
+            data-base-ui-swipe-ignore=""
             style={inputStyle}
           />
         </div>
@@ -407,6 +550,7 @@ function LinkDialog({
             value={title}
             onChange={(event) => setTitle(event.target.value)}
             placeholder="留空會從網址自動命名"
+            data-base-ui-swipe-ignore=""
             style={inputStyle}
           />
         </div>
@@ -427,6 +571,7 @@ function LinkDialog({
             value={tags}
             onChange={(event) => setTags(event.target.value)}
             placeholder="reference, typography, mobile"
+            data-base-ui-swipe-ignore=""
             style={inputStyle}
           />
         </div>
@@ -468,6 +613,7 @@ function LinkDialog({
             display: "flex",
             justifyContent: "space-between",
             gap: 8,
+            flexWrap: "wrap",
             marginTop: 22,
           }}
         >
@@ -503,7 +649,7 @@ function LinkDialog({
           </div>
         </div>
       </form>
-    </BaseDialog>
+    </Sheet>
   );
 }
 
@@ -1039,6 +1185,7 @@ export function InspirationCollector() {
             display: "flex",
             gap: 8,
             overflowX: "auto",
+            scrollbarWidth: "none",
             padding: "14px 0 4px",
           }}
         >

@@ -5,7 +5,7 @@ export default defineConfig({
   base: "/for-inspiration/",
   plugins: [
     remix({
-      basename: "/for-inspiration",
+      basename: "/for-inspiration/",
       ssr: false,
     }),
   ],
