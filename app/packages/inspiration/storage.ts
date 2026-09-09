@@ -20,6 +20,7 @@ export type Category = {
 export type CollectionData = {
   links: InspirationLink[];
   cats: Category[];
+  tagColors?: Record<string, string>;
   updatedAt?: number;
 };
 
@@ -67,6 +68,23 @@ function numberValue(value: unknown, fallback: number): number {
     : fallback;
 }
 
+function isHexColor(value: string): boolean {
+  return /^#[0-9a-f]{6}$/i.test(value);
+}
+
+function normalizeTagColors(value: unknown): Record<string, string> {
+  if (!isRecord(value)) {
+    return {};
+  }
+
+  return Object.fromEntries(
+    Object.entries(value).filter(
+      (entry): entry is [string, string] =>
+        typeof entry[1] === "string" && isHexColor(entry[1]),
+    ),
+  );
+}
+
 function stableHash(value: string): string {
   let hash = 2166136261;
   for (let index = 0; index < value.length; index += 1) {
@@ -96,6 +114,7 @@ function emptyCollection(): CollectionData {
   return {
     links: [],
     cats: DEFAULT_CATEGORIES.map((category) => ({ ...category })),
+    tagColors: {},
   };
 }
 
@@ -188,6 +207,7 @@ export function normalizeCollectionData(
             normalizeCategory(category, index, usedCategoryIds),
           )
         : emptyCollection().cats,
+    tagColors: normalizeTagColors(candidate.tagColors),
     updatedAt: numberValue(candidate.updatedAt, 0),
   };
 }

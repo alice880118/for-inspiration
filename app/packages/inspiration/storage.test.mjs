@@ -110,6 +110,28 @@ test("matches default category fallbacks by id and de-duplicates category ids", 
   assert.equal(normalized.cats[2].locked, true);
 });
 
+test("normalizes tag color maps without requiring them in legacy data", async () => {
+  const { normalizeCollectionData } = await loadStorageModule();
+  const legacy = normalizeCollectionData({
+    links: [{ url: "https://example.com", tags: ["reference"] }],
+    cats: [],
+  });
+  const withColors = normalizeCollectionData({
+    links: [{ url: "https://example.com", tags: ["reference"] }],
+    cats: [],
+    tagColors: {
+      reference: "#ffd6e7",
+      ignored: 123,
+      unsafe: "not-a-color",
+    },
+  });
+
+  assert.ok(legacy);
+  assert.ok(withColors);
+  assert.deepEqual(legacy.tagColors, {});
+  assert.deepEqual(withColors.tagColors, { reference: "#ffd6e7" });
+});
+
 test("prefers IndexedDB when updatedAt is equal or missing", async () => {
   const { chooseLatestCollection } = await loadStorageModule();
   const indexedDbData = { links: [{ id: "db" }], cats: [], updatedAt: 10 };
