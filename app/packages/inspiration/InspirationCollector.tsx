@@ -17,6 +17,7 @@ import {
   DEFAULT_CATEGORIES,
   type InspirationLink,
   loadCollection,
+  normalizeCollectionData,
   saveCollection,
 } from "./storage";
 
@@ -940,17 +941,13 @@ function DataDialog({
     const reader = new FileReader();
     reader.onload = () => {
       try {
-        const parsed = JSON.parse(String(reader.result)) as CollectionData;
-        if (!Array.isArray(parsed.links)) {
+        const parsed = normalizeCollectionData(
+          JSON.parse(String(reader.result)),
+        );
+        if (!parsed) {
           throw new Error("Invalid collection");
         }
-        onImport({
-          links: parsed.links,
-          cats:
-            Array.isArray(parsed.cats) && parsed.cats.length
-              ? parsed.cats
-              : cloneDefaultCategories(),
-        });
+        onImport(parsed);
         onClose();
       } catch {
         window.alert("這個 JSON 備份檔格式不正確。");

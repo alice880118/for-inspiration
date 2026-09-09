@@ -40,6 +40,58 @@ const LEGACY_KEY = "inspo:cache";
 const FALLBACK_KEY = "inspo:collection:v2";
 const METADATA_FALLBACK_KEY = "inspo:links:v2";
 
+type UnknownRecord = Record<string, unknown>;
+
+function isRecord(value: unknown): value is UnknownRecord {
+  return Boolean(value) && typeof value === "object";
+}
+
+function stringValue(value: unknown, fallback = ""): string {
+  return typeof value === "string" ? value : fallback;
+}
+
+function stringArray(value: unknown, fallback: string[]): string[] {
+  if (!Array.isArray(value)) {
+    return [...fallback];
+  }
+
+  const strings = value.filter(
+    (item): item is string => typeof item === "string",
+  );
+  return strings.length > 0 ? strings : [...fallback];
+}
+
+function numberValue(value: unknown, fallback: number): number {
+  return typeof value === "number" && Number.isFinite(value)
+    ? value
+    : fallback;
+}
+
+function stableHash(value: string): string {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(36);
+}
+
+function uniqueId(baseId: string, usedIds: Set<string>): string {
+  if (!usedIds.has(baseId)) {
+    usedIds.add(baseId);
+    return baseId;
+  }
+
+  let suffix = 2;
+  let candidate = `${baseId}:duplicate-${suffix}`;
+  while (usedIds.has(candidate)) {
+    suffix += 1;
+    candidate = `${baseId}:duplicate-${suffix}`;
+  }
+  usedIds.add(candidate);
+  return candidate;
+}
+
 function emptyCollection(): CollectionData {
   return {
     links: [],
@@ -47,8 +99,74 @@ function emptyCollection(): CollectionData {
   };
 }
 
-function normalize(value: unknown): CollectionData | null {
-  if (!value || typeof value !== "object") {
+function normalizeCategory(
+  value: unknown,
+  index: number,
+  usedIds: Set<string>,
+): Category {
+  const record = isRecord(value) ? value : {};
+  const positionFallback =
+    DEFAULT_CATEGORIES[index % DEFAULT_CATEGORIES.length] ??
+    DEFAULT_CATEGORIES[DEFAULT_CATEGORIES.length - 1];
+  const name = stringValue(record.name, "Untitled");
+  const rawId = stringValue(record.id).trim();
+  const matchedDefault = DEFAULT_CATEGORIES.find(
+    (category) => category.id === rawId,
+  );
+  const fallbackId = `category:${stableHash(
+    `${name}|${index.toString()}`,
+  )}`;
+
+  return {
+    ...record,
+    id: uniqueId(rawId || fallbackId, usedIds),
+    name,
+    color: stringValue(
+      record.color,
+      matchedDefault?.color ?? positionFallback.color,
+    ),
+    locked:
+      typeof record.locked === "boolean"
+        ? record.locked
+        : matchedDefault?.locked,
+  } as Category;
+}
+
+function normalizeLink(
+  value: unknown,
+  index: number,
+  usedIds: Set<string>,
+): InspirationLink {
+  const record = isRecord(value) ? value : {};
+  const url = stringValue(record.url);
+  const title = stringValue(record.title, url || "Untitled");
+  const createdAt = numberValue(record.createdAt, 0);
+  const rawId = stringValue(record.id).trim();
+  const fallbackId = `legacy:${stableHash(
+    `${url}|${createdAt.toString()}|${title}|${index.toString()}`,
+  )}`;
+
+  return {
+    ...record,
+    id: uniqueId(rawId || fallbackId, usedIds),
+    url,
+    title,
+    cats: stringArray(record.cats, ["others"]),
+    tags: stringArray(record.tags, []),
+    thumb: stringValue(record.thumb),
+    createdAt,
+    order: numberValue(record.order, createdAt || index),
+    needsReview:
+      typeof record.needsReview === "boolean"
+        ? record.needsReview
+        : false,
+  } as InspirationLink;
+}
+
+export function normalizeCollectionData(
+  value: unknown,
+): CollectionData | null {
+  if (!isRecord(value)) {
     return null;
   }
 
@@ -57,30 +175,54 @@ function normalize(value: unknown): CollectionData | null {
     return null;
   }
 
+  const usedIds = new Set<string>();
+  const usedCategoryIds = new Set<string>();
   return {
-    links: candidate.links,
+    ...candidate,
+    links: candidate.links.map((link, index) =>
+      normalizeLink(link, index, usedIds),
+    ),
     cats:
       Array.isArray(candidate.cats) && candidate.cats.length > 0
-        ? candidate.cats
+        ? candidate.cats.map((category, index) =>
+            normalizeCategory(category, index, usedCategoryIds),
+          )
         : emptyCollection().cats,
-    updatedAt:
-      typeof candidate.updatedAt === "number" ? candidate.updatedAt : 0,
+    updatedAt: numberValue(candidate.updatedAt, 0),
   };
 }
 
+export function chooseLatestCollection(
+  indexedDbData: CollectionData | null,
+  fallbackData: CollectionData | null,
+): CollectionData | null {
+  if (!indexedDbData) {
+    return fallbackData;
+  }
+  if (!fallbackData) {
+    return indexedDbData;
+  }
+
+  return (fallbackData.updatedAt ?? 0) > (indexedDbData.updatedAt ?? 0)
+    ? fallbackData
+    : indexedDbData;
+}
+
 function readLocalStorage(): CollectionData | null {
+  let fallback: CollectionData | null = null;
+
   for (const key of [FALLBACK_KEY, METADATA_FALLBACK_KEY, LEGACY_KEY]) {
     try {
       const raw = window.localStorage.getItem(key);
-      const data = raw ? normalize(JSON.parse(raw)) : null;
+      const data = raw ? normalizeCollectionData(JSON.parse(raw)) : null;
       if (data) {
-        return data;
+        fallback = chooseLatestCollection(fallback, data);
       }
     } catch {
       // Continue to the next source when stored data is malformed.
     }
   }
-  return null;
+  return fallback;
 }
 
 function openDatabase(): Promise<IDBDatabase> {
@@ -104,7 +246,7 @@ async function readIndexedDb(): Promise<CollectionData | null> {
     const transaction = database.transaction(STORE_NAME, "readonly");
     const request = transaction.objectStore(STORE_NAME).get(SNAPSHOT_KEY);
 
-    request.onsuccess = () => resolve(normalize(request.result));
+    request.onsuccess = () => resolve(normalizeCollectionData(request.result));
     request.onerror = () => reject(request.error);
     transaction.oncomplete = () => database.close();
   });
@@ -128,8 +270,7 @@ function mirrorToLocalStorage(data: CollectionData): void {
   try {
     window.localStorage.setItem(FALLBACK_KEY, JSON.stringify(data));
   } catch {
-    // Keep room for a lightweight link-only fallback when thumbnails are large.
-    window.localStorage.removeItem(FALLBACK_KEY);
+    // Keep the last full snapshot intact and fall back to lightweight metadata.
   }
 
   try {
@@ -156,10 +297,7 @@ export async function loadCollection(): Promise<CollectionData> {
   try {
     const stored = await readIndexedDb();
     if (stored || fallback) {
-      const latest =
-        (fallback?.updatedAt ?? 0) > (stored?.updatedAt ?? 0)
-          ? fallback!
-          : stored!;
+      const latest = chooseLatestCollection(stored, fallback)!;
       mirrorToLocalStorage(latest);
       if (latest === fallback) {
         await writeIndexedDb(latest);
