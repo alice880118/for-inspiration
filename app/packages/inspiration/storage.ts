@@ -99,23 +99,36 @@ function emptyCollection(): CollectionData {
   };
 }
 
-function normalizeCategory(value: unknown, index: number): Category {
+function normalizeCategory(
+  value: unknown,
+  index: number,
+  usedIds: Set<string>,
+): Category {
   const record = isRecord(value) ? value : {};
-  const fallbackCategory =
+  const positionFallback =
     DEFAULT_CATEGORIES[index % DEFAULT_CATEGORIES.length] ??
     DEFAULT_CATEGORIES[DEFAULT_CATEGORIES.length - 1];
   const name = stringValue(record.name, "Untitled");
   const rawId = stringValue(record.id).trim();
-  const id =
-    rawId || `category:${stableHash(`${name}|${index.toString()}`)}`;
+  const matchedDefault = DEFAULT_CATEGORIES.find(
+    (category) => category.id === rawId,
+  );
+  const fallbackId = `category:${stableHash(
+    `${name}|${index.toString()}`,
+  )}`;
 
   return {
     ...record,
-    id,
+    id: uniqueId(rawId || fallbackId, usedIds),
     name,
-    color: stringValue(record.color, fallbackCategory.color),
+    color: stringValue(
+      record.color,
+      matchedDefault?.color ?? positionFallback.color,
+    ),
     locked:
-      typeof record.locked === "boolean" ? record.locked : undefined,
+      typeof record.locked === "boolean"
+        ? record.locked
+        : matchedDefault?.locked,
   } as Category;
 }
 
@@ -163,6 +176,7 @@ export function normalizeCollectionData(
   }
 
   const usedIds = new Set<string>();
+  const usedCategoryIds = new Set<string>();
   return {
     ...candidate,
     links: candidate.links.map((link, index) =>
@@ -170,7 +184,9 @@ export function normalizeCollectionData(
     ),
     cats:
       Array.isArray(candidate.cats) && candidate.cats.length > 0
-        ? candidate.cats.map(normalizeCategory)
+        ? candidate.cats.map((category, index) =>
+            normalizeCategory(category, index, usedCategoryIds),
+          )
         : emptyCollection().cats,
     updatedAt: numberValue(candidate.updatedAt, 0),
   };

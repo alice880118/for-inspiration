@@ -85,6 +85,31 @@ test("preserves existing link, category, image, and metadata values", async () =
   assert.equal(normalized.updatedAt, 456);
 });
 
+test("matches default category fallbacks by id and de-duplicates category ids", async () => {
+  const { normalizeCollectionData } = await loadStorageModule();
+  const raw = {
+    links: [{ url: "https://example.com" }],
+    cats: [
+      { id: "others", name: "Others" },
+      { id: "uiux", name: "UIUX" },
+      { id: "others", name: "Others duplicate" },
+    ],
+  };
+
+  const normalized = normalizeCollectionData(raw);
+
+  assert.ok(normalized);
+  assert.equal(normalized.cats[0].id, "others");
+  assert.equal(normalized.cats[0].color, "#767676");
+  assert.equal(normalized.cats[0].locked, true);
+  assert.equal(normalized.cats[1].id, "uiux");
+  assert.equal(normalized.cats[1].color, "#6c5ce7");
+  assert.equal(normalized.cats[1].locked, undefined);
+  assert.equal(normalized.cats[2].id, "others:duplicate-2");
+  assert.equal(normalized.cats[2].color, "#767676");
+  assert.equal(normalized.cats[2].locked, true);
+});
+
 test("prefers IndexedDB when updatedAt is equal or missing", async () => {
   const { chooseLatestCollection } = await loadStorageModule();
   const indexedDbData = { links: [{ id: "db" }], cats: [], updatedAt: 10 };
