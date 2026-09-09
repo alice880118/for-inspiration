@@ -42,6 +42,17 @@ const tagPalette = [
   "#d3f0ea",
 ];
 
+const categoryPalette = [
+  "#6c5ce7",
+  "#e17055",
+  "#00a884",
+  "#d65b83",
+  "#3877c9",
+  "#b7791f",
+  "#16859b",
+  "#767676",
+];
+
 const colors = {
   page: "#f6f5f1",
   panel: "#ffffff",
@@ -195,6 +206,49 @@ function pruneTagColors(
   const usedTags = new Set(links.flatMap((link) => link.tags));
   return Object.fromEntries(
     Object.entries(tagColors ?? {}).filter(([tag]) => usedTags.has(tag)),
+  );
+}
+
+function ColorPalette({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  options: string[];
+  onChange: (color: string) => void;
+}) {
+  return (
+    <div
+      aria-label={label}
+      role="radiogroup"
+      style={{ display: "flex", flexWrap: "wrap", gap: 8 }}
+    >
+      {options.map((color) => (
+        <button
+          key={color}
+          type="button"
+          aria-checked={value === color}
+          aria-label={`${label} ${color}`}
+          role="radio"
+          onClick={() => onChange(color)}
+          style={{
+            width: 26,
+            height: 26,
+            border:
+              value === color
+                ? `2px solid ${colors.ink}`
+                : `1px solid ${colors.line}`,
+            borderRadius: 999,
+            background: color,
+            cursor: "pointer",
+            padding: 0,
+          }}
+        />
+      ))}
+    </div>
   );
 }
 
@@ -746,39 +800,17 @@ function LinkDialog({
                     >
                       #{tag}
                     </span>
-                    <div
-                      aria-label={`標籤 ${tag} 顏色`}
-                      role="radiogroup"
-                      style={{ display: "flex", flexWrap: "wrap", gap: 8 }}
-                    >
-                      {tagPalette.map((color) => (
-                        <button
-                          key={color}
-                          type="button"
-                          aria-checked={activeColor === color}
-                          aria-label={`將 ${tag} 設為 ${color}`}
-                          role="radio"
-                          onClick={() =>
-                            setDraftTagColors((current) => ({
-                              ...current,
-                              [tag]: color,
-                            }))
-                          }
-                          style={{
-                            width: 26,
-                            height: 26,
-                            border:
-                              activeColor === color
-                                ? `2px solid ${colors.ink}`
-                                : `1px solid ${colors.line}`,
-                            borderRadius: 999,
-                            background: color,
-                            cursor: "pointer",
-                            padding: 0,
-                          }}
-                        />
-                      ))}
-                    </div>
+                    <ColorPalette
+                      label={`標籤 ${tag} 顏色`}
+                      value={activeColor}
+                      options={tagPalette}
+                      onChange={(color) =>
+                        setDraftTagColors((current) => ({
+                          ...current,
+                          [tag]: color,
+                        }))
+                      }
+                    />
                   </div>
                 );
               })}
@@ -929,7 +961,7 @@ function CategoryDialog({
       onOpenChange={(next) => !next && onClose()}
       title="管理分類"
     >
-      <div style={{ display: "grid", gap: 8 }}>
+      <div style={{ display: "grid", gap: 14 }}>
         {draft.map((category, index) => (
           <div
             key={category.id}
@@ -940,33 +972,14 @@ function CategoryDialog({
               gap: 8,
             }}
           >
-            <Button
-              type="button"
-              aria-label="更換分類顏色"
+            <span
+              aria-hidden="true"
               style={{
                 width: 24,
                 height: 24,
-                padding: 0,
-                border: 0,
                 borderRadius: 7,
                 background: category.color,
-                cursor: "pointer",
               }}
-              onClick={() =>
-                setDraft((current) =>
-                  current.map((item) =>
-                    item.id === category.id
-                      ? {
-                          ...item,
-                          color:
-                            palette[
-                              (palette.indexOf(item.color) + 1) % palette.length
-                            ],
-                        }
-                      : item,
-                  ),
-                )
-              }
             />
             <input
               value={category.name}
@@ -994,6 +1007,22 @@ function CategoryDialog({
                 <SvgIcon path="M4 7h16M9 7V5h6v2M7 7l1 13h8l1-13" />
               </Button>
             )}
+            <div style={{ gridColumn: "2 / -1" }}>
+              <ColorPalette
+                label={`${category.name} 分類顏色`}
+                value={category.color}
+                options={categoryPalette}
+                onChange={(color) =>
+                  setDraft((current) =>
+                    current.map((item, itemIndex) =>
+                      itemIndex === index
+                        ? { ...item, color }
+                        : item,
+                    ),
+                  )
+                }
+              />
+            </div>
           </div>
         ))}
       </div>
