@@ -31,6 +31,17 @@ const palette = [
   "#16859b",
 ];
 
+const tagPalette = [
+  "#efeee9",
+  "#ffd6e7",
+  "#ffe0b2",
+  "#fff3bf",
+  "#d3f9d8",
+  "#d0ebff",
+  "#e5dbff",
+  "#d3f0ea",
+];
+
 const colors = {
   page: "#f6f5f1",
   panel: "#ffffff",
@@ -42,6 +53,8 @@ const colors = {
   accent: "#191919",
   danger: "#b42318",
 };
+
+const defaultTagColor = colors.soft;
 
 const buttonStyle: CSSProperties = {
   minHeight: 38,
@@ -100,6 +113,13 @@ function newId(): string {
   return crypto.randomUUID?.() ?? Math.random().toString(36).slice(2);
 }
 
+function parseTags(value: string): string[] {
+  return value
+    .split(",")
+    .map((tag) => tag.trim().replace(/^#/, ""))
+    .filter(Boolean);
+}
+
 function normalizeUrl(value: string): string {
   const trimmed = value.trim();
   if (!trimmed) {
@@ -140,6 +160,42 @@ function screenshotUrl(url: string): string {
 
 function initial(title: string): string {
   return title.trim().charAt(0).toUpperCase() || "?";
+}
+
+function readableTextColor(background: string): string {
+  const match = /^#([0-9a-f]{6})$/i.exec(background);
+  if (!match) {
+    return colors.muted;
+  }
+
+  const red = Number.parseInt(match[1].slice(0, 2), 16);
+  const green = Number.parseInt(match[1].slice(2, 4), 16);
+  const blue = Number.parseInt(match[1].slice(4, 6), 16);
+  const luminance = (red * 299 + green * 587 + blue * 114) / 1000;
+  return luminance > 150 ? colors.ink : "#ffffff";
+}
+
+function tagChipStyle(
+  tag: string,
+  tagColors: Record<string, string> | undefined,
+): CSSProperties {
+  const background = tagColors?.[tag] ?? defaultTagColor;
+
+  return {
+    background,
+    border: `1px solid ${background === defaultTagColor ? colors.line : background}`,
+    color: readableTextColor(background),
+  };
+}
+
+function pruneTagColors(
+  tagColors: Record<string, string> | undefined,
+  links: InspirationLink[],
+): Record<string, string> {
+  const usedTags = new Set(links.flatMap((link) => link.tags));
+  return Object.fromEntries(
+    Object.entries(tagColors ?? {}).filter(([tag]) => usedTags.has(tag)),
+  );
 }
 
 function cloneDefaultCategories(): Category[] {
@@ -460,6 +516,7 @@ function LinkDialog({
   open,
   link,
   categories,
+  tagColors,
   initialUrl,
   onClose,
   onSave,
@@ -469,9 +526,13 @@ function LinkDialog({
   open: boolean;
   link: InspirationLink | null;
   categories: Category[];
+  tagColors: Record<string, string>;
   initialUrl: string;
   onClose: () => void;
-  onSave: (link: InspirationLink) => void;
+  onSave: (
+    link: InspirationLink,
+    tagColors: Record<string, string>,
+  ) => void;
   onDelete: (id: string) => void;
   onAddCategory: (name: string) => Category;
 }) {
@@ -482,6 +543,9 @@ function LinkDialog({
   const [thumb, setThumb] = useState("");
   const [newCategory, setNewCategory] = useState("");
   const [capturing, setCapturing] = useState(false);
+  const [draftTagColors, setDraftTagColors] = useState<Record<string, string>>(
+    {},
+  );
 
   useEffect(() => {
     const normalized = normalizeUrl(initialUrl);
@@ -492,7 +556,10 @@ function LinkDialog({
     setThumb(link?.thumb ?? "");
     setNewCategory("");
     setCapturing(false);
-  }, [initialUrl, link, open]);
+    setDraftTagColors({ ...tagColors });
+  }, [initialUrl, link, open, tagColors]);
+
+  const parsedTags = useMemo(() => parseTags(tags), [tags]);
 
   function submit(event: FormEvent) {
     event.preventDefault();
@@ -506,15 +573,12 @@ function LinkDialog({
       url: normalized,
       title: title.trim() || guessTitle(normalized),
       cats: selected,
-      tags: tags
-        .split(",")
-        .map((tag) => tag.trim().replace(/^#/, ""))
-        .filter(Boolean),
+      tags: parsedTags,
       thumb,
       createdAt: link?.createdAt ?? Date.now(),
       order: link?.order ?? Date.now(),
       needsReview: false,
-    });
+    }, draftTagColors);
   }
 
   const mobile = useIsMobile();
@@ -658,6 +722,68 @@ function LinkDialog({
             data-base-ui-swipe-ignore=""
             style={inputStyle}
           />
+          {parsedTags.length ? (
+            <div style={{ display: "grid", gap: 10, marginTop: 10 }}>
+              {parsedTags.map((tag) => {
+                const activeColor = draftTagColors[tag] ?? defaultTagColor;
+                return (
+                  <div
+                    key={tag}
+                    style={{
+                      display: "grid",
+                      gap: 8,
+                      minWidth: 0,
+                    }}
+                  >
+                    <span
+                      style={{
+                        ...tagChipStyle(tag, draftTagColors),
+                        justifySelf: "start",
+                        padding: "4px 8px",
+                        borderRadius: 6,
+                        fontSize: 12,
+                      }}
+                    >
+                      #{tag}
+                    </span>
+                    <div
+                      aria-label={`標籤 ${tag} 顏色`}
+                      role="radiogroup"
+                      style={{ display: "flex", flexWrap: "wrap", gap: 8 }}
+                    >
+                      {tagPalette.map((color) => (
+                        <button
+                          key={color}
+                          type="button"
+                          aria-checked={activeColor === color}
+                          aria-label={`將 ${tag} 設為 ${color}`}
+                          role="radio"
+                          onClick={() =>
+                            setDraftTagColors((current) => ({
+                              ...current,
+                              [tag]: color,
+                            }))
+                          }
+                          style={{
+                            width: 26,
+                            height: 26,
+                            border:
+                              activeColor === color
+                                ? `2px solid ${colors.ink}`
+                                : `1px solid ${colors.line}`,
+                            borderRadius: 999,
+                            background: color,
+                            cursor: "pointer",
+                            padding: 0,
+                          }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : null}
         </div>
         <div style={{ marginBottom: 14 }}>
           <span style={labelStyle}>縮圖（選用）</span>
@@ -1023,6 +1149,7 @@ export function InspirationCollector() {
   const [data, setData] = useState<CollectionData>({
     links: [],
     cats: cloneDefaultCategories(),
+    tagColors: {},
   });
   const [ready, setReady] = useState(false);
   const [status, setStatus] = useState("讀取中…");
@@ -1109,12 +1236,19 @@ export function InspirationCollector() {
     setLinkDialogOpen(true);
   }
 
-  function saveLink(link: InspirationLink) {
+  function saveLink(
+    link: InspirationLink,
+    nextTagColors: Record<string, string>,
+  ) {
     const exists = data.links.some((item) => item.id === link.id);
     const links = exists
       ? data.links.map((item) => (item.id === link.id ? link : item))
       : [link, ...data.links];
-    commit({ ...data, links });
+    commit({
+      ...data,
+      links,
+      tagColors: pruneTagColors(nextTagColors, links),
+    });
     setLinkDialogOpen(false);
   }
 
@@ -1135,7 +1269,12 @@ export function InspirationCollector() {
     if (!window.confirm("確定刪除這筆靈感？")) {
       return;
     }
-    commit({ ...data, links: data.links.filter((link) => link.id !== id) });
+    const links = data.links.filter((link) => link.id !== id);
+    commit({
+      ...data,
+      links,
+      tagColors: pruneTagColors(data.tagColors, links),
+    });
     setLinkDialogOpen(false);
   }
 
@@ -1452,11 +1591,10 @@ export function InspirationCollector() {
                         <span
                           key={tag}
                           style={{
+                            ...tagChipStyle(tag, data.tagColors),
                             flex: "0 0 auto",
                             padding: "3px 7px",
                             borderRadius: 5,
-                            background: colors.soft,
-                            color: colors.muted,
                             fontSize: 10,
                           }}
                         >
@@ -1517,6 +1655,7 @@ export function InspirationCollector() {
         open={linkDialogOpen}
         link={editingLink}
         categories={data.cats}
+        tagColors={data.tagColors ?? {}}
         initialUrl={prefillUrl}
         onClose={() => setLinkDialogOpen(false)}
         onSave={saveLink}
