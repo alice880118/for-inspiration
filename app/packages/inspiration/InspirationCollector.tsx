@@ -1057,7 +1057,7 @@ export function InspirationCollector() {
         "load",
         () => {
           navigator.serviceWorker
-            .register("/for-inspiration/sw.js")
+            .register("/sw.js")
             .catch(() => undefined);
         },
         { once: true },

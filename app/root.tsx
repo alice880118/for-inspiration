@@ -42,12 +42,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
             ].join(""),
           }}
         />
-        <link rel="manifest" href="/for-inspiration/manifest.webmanifest" />
-        <link rel="icon" href="/for-inspiration/icons/icon.svg" />
-        <link
-          rel="apple-touch-icon"
-          href="/for-inspiration/icons/apple-touch-icon.png"
-        />
+        <link rel="manifest" href="/manifest.webmanifest" />
+        <link rel="icon" href="/icons/icon.svg" />
+        <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
       </head>
       <body
         style={{

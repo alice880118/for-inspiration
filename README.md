@@ -9,7 +9,7 @@
 - `app/packages/inspiration/`：收藏介面、Base UI 元件與持久化邏輯
 - `app/routes/`：Remix 路由
 - `public/`：PWA manifest、Service Worker 與圖示
-- `.github/workflows/deploy.yml`：GitHub Pages 自動部署
+- `vercel.json`：Vercel 部署設定
 
 ## 資料存在哪裡
 
@@ -25,13 +25,13 @@ npm install
 npm run dev
 ```
 
-## GitHub Pages
+## Vercel 部署
 
-推送到 `main` 後，GitHub Actions 會建置 Remix SPA 並部署 `build/client`。Repository 的 Pages Source 需設為 **GitHub Actions**。
+專案以網站根目錄 `/` 提供服務。Vercel 會依 `vercel.json` 執行 `npm run build`，並發布 `build/client`；SPA 路由由 rewrite 全部導回 `index.html`。
 
 ## iPhone 加到主畫面
 
-1. 用 iPhone Safari 開啟你的 GitHub Pages 網址。
+1. 用 iPhone Safari 開啟你的 Vercel 網址。
 2. 點底部分享按鈕。
 3. 選「加入主畫面」。
 4. 直接開始貼網址，不用先設定任何東西。

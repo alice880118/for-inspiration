@@ -1,12 +1,12 @@
-const CACHE_NAME = 'inspiration-collector-v4';
+const CACHE_NAME = 'inspiration-collector-v5';
 const APP_SHELL = [
-  '/for-inspiration/',
-  '/for-inspiration/index.html',
-  '/for-inspiration/manifest.webmanifest',
-  '/for-inspiration/icons/icon.svg',
-  '/for-inspiration/icons/icon-192.png',
-  '/for-inspiration/icons/icon-512.png',
-  '/for-inspiration/icons/apple-touch-icon.png'
+  '/',
+  '/index.html',
+  '/manifest.webmanifest',
+  '/icons/icon.svg',
+  '/icons/icon-192.png',
+  '/icons/icon-512.png',
+  '/icons/apple-touch-icon.png'
 ];
 
 self.addEventListener('install', event => {
@@ -44,7 +44,7 @@ self.addEventListener('fetch', event => {
         }
         return response;
       }).catch(() => caches.match(event.request)
-        .then(cached => cached || caches.match('/for-inspiration/index.html')))
+        .then(cached => cached || caches.match('/index.html')))
     );
     return;
   }
