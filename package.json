@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "remix vite:dev",
+    "test": "node --test app/packages/inspiration/storage.test.mjs",
     "build": "remix vite:build",
     "start": "vite preview"
   },
