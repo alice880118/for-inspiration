@@ -64,16 +64,23 @@ export function Drawer({
   open, onClose, children, label, sub = false,
 }: { open: boolean; onClose: () => void; children: ReactNode; label: string; sub?: boolean }) {
   const [closing, setClosing] = useState(false);
+  const [ready, setReady] = useState(false);
+  const [dragging, setDragging] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const drag = useRef<{ pointerId: number; y: number; dy: number } | null>(null);
+  const closingRef = useRef(false);
 
   const close = () => {
-    if (closing) return;
+    if (closingRef.current) return;
+    closingRef.current = true;
     setClosing(true);
-    setTimeout(() => {
+    window.setTimeout(() => {
+      closingRef.current = false;
       setClosing(false);
+      setDragging(false);
+      setReady(false);
       onClose();
-    }, 310);
+    }, 280);
   };
 
   useEffect(() => {
@@ -85,6 +92,11 @@ export function Drawer({
     document.body.style.overflow = "hidden";
 
     const sheet = ref.current;
+    const markReady = (e: AnimationEvent) => {
+      if (e.animationName === "sheet-up") setReady(true);
+    };
+    sheet?.addEventListener("animationend", markReady);
+    const readyTimer = window.setTimeout(() => setReady(true), 450);
     const vv = window.visualViewport;
     const pinToKeyboard = () => {
       if (!sheet || drag.current) return;
@@ -108,15 +120,19 @@ export function Drawer({
 
     return () => {
       drawerDepth--;
+      window.clearTimeout(readyTimer);
       window.removeEventListener("keydown", onKey);
       document.body.style.overflow = prev;
       vv?.removeEventListener("resize", pinToKeyboard);
       vv?.removeEventListener("scroll", pinToKeyboard);
       window.removeEventListener("focusin", revealField);
       sheet?.removeEventListener("focusin", revealField);
+      sheet?.removeEventListener("animationend", markReady);
       if (sheet) {
         sheet.style.bottom = "";
         sheet.style.maxHeight = "";
+        sheet.style.transform = "";
+        sheet.style.transition = "";
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -128,7 +144,7 @@ export function Drawer({
       <div className={`scrim${sub ? " sub" : ""}${closing ? " closing" : ""}`} onClick={close} />
       <div
         ref={ref}
-        className={`drawer${sub ? " sub" : ""}${closing ? " closing" : ""}`}
+        className={`drawer${sub ? " sub" : ""}${ready ? " ready" : ""}${dragging ? " dragging" : ""}${closing ? " closing" : ""}`}
         role="dialog"
         aria-modal="true"
         aria-label={label}
@@ -138,32 +154,58 @@ export function Drawer({
           onPointerDown={(e) => {
             e.preventDefault();
             e.stopPropagation();
+            const sheet = ref.current;
+            if (!sheet) return;
             drag.current = { pointerId: e.pointerId, y: e.clientY, dy: 0 };
             e.currentTarget.setPointerCapture(e.pointerId);
-            ref.current?.classList.add("dragging");
+            setReady(true);
+            setDragging(true);
+            sheet.style.transition = "none";
           }}
           onPointerMove={(e) => {
             if (!drag.current || drag.current.pointerId !== e.pointerId || !ref.current) return;
             e.preventDefault();
             e.stopPropagation();
             drag.current.dy = Math.max(0, e.clientY - drag.current.y);
-            ref.current.style.transform = `translate(-50%, ${drag.current.dy}px)`;
+            ref.current.style.transform = `translate3d(-50%, ${drag.current.dy}px, 0)`;
           }}
           onPointerUp={(e) => {
             if (!drag.current || drag.current.pointerId !== e.pointerId || !ref.current) return;
             e.preventDefault();
             e.stopPropagation();
+            const sheet = ref.current;
             const { dy } = drag.current;
             drag.current = null;
-            ref.current.classList.remove("dragging");
-            ref.current.style.transform = "";
-            if (dy > 90) close();
+            if (dy > 90) {
+              sheet.style.transition = "transform .28s cubic-bezier(.4,0,.2,1)";
+              sheet.style.transform = "translate3d(-50%, 110%, 0)";
+              close();
+              return;
+            }
+            sheet.style.transition = "transform .22s cubic-bezier(.22,.82,.2,1)";
+            sheet.style.transform = "translate3d(-50%, 0, 0)";
+            let settled = false;
+            const settle = () => {
+              if (settled) return;
+              settled = true;
+              setDragging(false);
+              sheet.style.transition = "";
+              sheet.style.transform = "";
+            };
+            sheet.addEventListener("transitionend", settle, { once: true });
+            window.setTimeout(settle, 240);
           }}
           onPointerCancel={(e) => {
             if (!drag.current || drag.current.pointerId !== e.pointerId || !ref.current) return;
             drag.current = null;
-            ref.current.classList.remove("dragging");
-            ref.current.style.transform = "";
+            const sheet = ref.current;
+            sheet.style.transition = "transform .22s cubic-bezier(.22,.82,.2,1)";
+            sheet.style.transform = "translate3d(-50%, 0, 0)";
+            window.setTimeout(() => {
+              setDragging(false);
+              sheet.style.transition = "";
+              sheet.style.transform = "";
+            }, 240);
           }}
         >
           <i />
