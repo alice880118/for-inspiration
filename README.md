@@ -1,42 +1,65 @@
-# 靈感收集器
+# Pobbi — Inspiration Collector (PWA)
 
-這是一個使用 Remix、React 與 [Base UI](https://base-ui.com/) 建立的個人靈感收集工具，可部署到 GitHub Pages。
+Next.js 15 app, local-first (IndexedDB), installable to desktop / home screen, deployable on Vercel.
 
-**開箱就能用，不用做任何設定。** 每次新增、編輯或刪除後，資料都會立即寫入 IndexedDB，並同步保留 localStorage 備援。重新整理、關閉瀏覽器或從 iPhone 主畫面重開都不會清空。
-
-## 專案內容
-
-- `app/packages/inspiration/`：收藏介面、Base UI 元件與持久化邏輯
-- `app/routes/`：Remix 路由
-- `public/`：PWA manifest、Service Worker 與圖示
-- `vercel.json`：Vercel 部署設定
-
-## 資料存在哪裡
-
-1. IndexedDB 是主要儲存，適合保存連結、分類與壓縮後的縮圖。
-2. localStorage 同步保留最新快照；IndexedDB 失效時仍能還原。
-3. 舊版 `inspo:cache` 會在第一次啟動時自動搬移，不會因改版遺失。
-4. 右上角資料面板可下載或匯入 JSON 備份。
-
-## 本機開發
-
-```sh
+## Run locally
+```bash
 npm install
-npm run dev
+npm run dev          # http://localhost:3000
+npm run build && npm start   # production mode (service worker only registers in production)
 ```
 
-## Vercel 部署
+## Deploy to Vercel
+1. Push this folder to a GitHub repo.
+2. vercel.com → Add New → Project → import the repo. Framework preset: **Next.js** (no env vars needed).
+3. Open the deployed URL:
+   - **Desktop Chrome / Edge**: click the install icon in the address bar (or Settings → “Install Pobbi on this device”).
+   - **macOS Safari**: File → Add to Dock.
+   - **iPhone Safari**: Share → Add to Home Screen.
+   - **Android Chrome**: menu → Install app (Pobbi also appears in the Share sheet → share a link straight into Add Inspiration).
 
-專案以網站根目錄 `/` 提供服務。Vercel 會依 `vercel.json` 執行 `npm run build`，並發布 `build/client`；SPA 路由由 rewrite 全部導回 `index.html`。
+## Terms
+- **Category** = “Classify Tag” in the UI (coloured, few, used for Home sections & filters).
+- **Tag** = free-form keyword (e.g. Tools, Dashboard), managed in Settings → Manage Tags.
 
-## iPhone 加到主畫面
+## Reminders
+Local only (no push server): a daily notification when the app is opened and something is due,
+“Remind in 10m” while Pobbi stays open, and the in-app Notification Center.
 
-1. 用 iPhone Safari 開啟你的 Vercel 網址。
-2. 點底部分享按鈕。
-3. 選「加入主畫面」。
-4. 直接開始貼網址，不用先設定任何東西。
+## Data safety
+- All data lives in the user’s browser (IndexedDB: `inspirations`, `images`, `tags`, `meta`). Deploys never touch it.
+- `lib/db.ts` rules: only **add** stores/indexes, bump `DB_VERSION`, add a new `if (oldVersion < N)` block. Record shape changes go in `normalizeInspiration()`.
+- The app calls `navigator.storage.persist()` so the browser won’t evict data under pressure.
+- Settings → Export backup (JSON incl. images) / Import backup (merge).
+- Keep the production domain stable — IndexedDB is per-origin (a new Vercel URL = empty library).
 
-## 注意
-
-- 只有手動清除這個網站的瀏覽器資料時，收藏才會被刪除。
-- 建議定期下載 JSON 備份，方便換裝置時匯入。
+## Structure
+```
+app/
+  page.tsx            00-1 Splash (routes first-time → /welcome, returning → /home)
+  welcome/            00-2 Welcome
+  onboarding/         00-3 Create First Inspiration
+  home/               01 Home (empty / one / full states, search, color search, tag chips, sort)
+  inspiration/?id=    04 Inspiration Detail (edit, schedule, mark read, copy, delete)
+  library/            02 Library — flat list, multi-category chips, Filter drawer, color search
+  reading/            03-1 Reading Queue — calendar (month/week), Mark drawer, options, today reminder popup
+  reading/history/    03-2 Read History — weekly chart, category legend, day groups
+  settings/           06 Settings — categories, tags, export/import (merge/replace), reminders, storage
+  settings/categories Manage Categories — drag to reorder, add / edit / delete
+  settings/tags       Manage Tags — free-form tags: rename, merge, delete everywhere
+  notifications/      Notification Center — today + overdue (move to this weekend)
+  api/meta            fetch page title, og/images, detected fonts (SSRF-guarded)
+  api/image           same-origin image proxy (for palette extraction + storing the blob)
+components/
+  AddDrawer.tsx       Drawer_Add Inspiration (global, opened by the + FAB)
+  InspirationForm.tsx shared Add/Edit layout
+  FormParts.tsx       URL / Thumbnail / Name / Font+Color / Classify Tag / Tags / Purpose / Note
+  ColorPicker.tsx     Color picker drawer (SV + hue + alpha + hex, eyedropper / tap thumbnail)
+  Calendar.tsx        Calendar grid + Date Picker drawer
+  Panels.tsx          Edit Font / Edit Tags / Add & Edit Classify Tag drawers
+  Reading.tsx         Reading header, Mark-as-read drawer, reading options
+  Icons.tsx           icons exported from Figma
+lib/
+  db.ts  image.ts (compress, 5-color palette)  filter.ts  types.ts
+public/sw.js          service worker (app shell cache only)
+```

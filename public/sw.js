@@ -1,63 +1,62 @@
-const CACHE_NAME = 'inspiration-collector-v5';
-const APP_SHELL = [
-  '/',
-  '/index.html',
-  '/manifest.webmanifest',
-  '/icons/icon.svg',
-  '/icons/icon-192.png',
-  '/icons/icon-512.png',
-  '/icons/apple-touch-icon.png'
-];
+/* Pobbi service worker — app-shell caching only. User data lives in IndexedDB and is never touched here. */
+const VERSION = "pobbi-v2";
+const SHELL = ["/", "/home", "/welcome", "/onboarding", "/library", "/reading", "/settings", "/settings/categories", "/settings/tags", "/notifications", "/reading/history", "/inspiration", "/manifest.webmanifest"];
 
-self.addEventListener('install', event => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(APP_SHELL))
-  );
-  self.skipWaiting();
+self.addEventListener("install", (e) => {
+  e.waitUntil(caches.open(VERSION).then((c) => c.addAll(SHELL).catch(() => {})).then(() => self.skipWaiting()));
 });
 
-self.addEventListener('activate', event => {
-  event.waitUntil(
-    caches.keys().then(keys => Promise.all(
-      keys.filter(key => key !== CACHE_NAME).map(key => caches.delete(key))
-    ))
+self.addEventListener("activate", (e) => {
+  e.waitUntil(
+    caches.keys()
+      .then((keys) => Promise.all(keys.filter((k) => k !== VERSION).map((k) => caches.delete(k))))
+      .then(() => self.clients.claim())
   );
-  self.clients.claim();
 });
 
-self.addEventListener('fetch', event => {
-  const url = new URL(event.request.url);
-  if (url.origin !== location.origin) return;
-  if (event.request.method !== 'GET') return;
+self.addEventListener("fetch", (e) => {
+  const req = e.request;
+  if (req.method !== "GET") return;
+  const url = new URL(req.url);
 
-  const isDocument = event.request.mode === 'navigate'
-    || /\.(html|webmanifest)$/.test(url.pathname)
-    || url.pathname.endsWith('/');
+  // API calls always go to the network
+  if (url.origin === location.origin && url.pathname.startsWith("/api/")) return;
 
-  // 頁面本身走 network-first，改版後手機才不會一直開到舊的畫面。
-  if (isDocument) {
-    event.respondWith(
-      fetch(event.request).then(response => {
-        if (response.ok) {
-          const copy = response.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put(event.request, copy));
-        }
-        return response;
-      }).catch(() => caches.match(event.request)
-        .then(cached => cached || caches.match('/index.html')))
+  // Hashed build assets + fonts: cache-first
+  if ((url.origin === location.origin && url.pathname.startsWith("/_next/static/")) ||
+      url.hostname === "fonts.googleapis.com" || url.hostname === "fonts.gstatic.com" ||
+      (url.origin === location.origin && url.pathname.startsWith("/icons/"))) {
+    e.respondWith(
+      caches.match(req).then((hit) => hit || fetch(req).then((res) => {
+        const copy = res.clone();
+        caches.open(VERSION).then((c) => c.put(req, copy));
+        return res;
+      }))
     );
     return;
   }
 
-  event.respondWith(
-    caches.match(event.request).then(cached => {
-      return cached || fetch(event.request).then(response => {
-        if (response.ok) {
-          const copy = response.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put(event.request, copy));
-        }
-        return response;
-      });
+  // Pages: network-first, fall back to cache when offline
+  if (req.mode === "navigate") {
+    e.respondWith(
+      fetch(req).then((res) => {
+        const copy = res.clone();
+        caches.open(VERSION).then((c) => c.put(url.pathname, copy));
+        return res;
+      }).catch(() => caches.match(url.pathname).then((hit) => hit || caches.match("/home")))
+    );
+  }
+});
+
+self.addEventListener("notificationclick", (e) => {
+  e.notification.close();
+  const url = (e.notification.data && e.notification.data.url) || "/reading";
+  e.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
+      for (const c of list) {
+        if ("focus" in c) { c.navigate(url); return c.focus(); }
+      }
+      return self.clients.openWindow(url);
     })
   );
 });
