@@ -30,6 +30,40 @@ function cleanFont(f: string) {
   return m ? m[1].replace(/_/g, " ") : name;
 }
 
+/** Meta only serves og: tags to whitelisted crawlers; a browser UA gets the login wall instead. */
+const META_HOSTS = /(?:^|\.)(?:instagram\.com|facebook\.com|fb\.com|fb\.watch|threads\.net|threads\.com)$/i;
+const CRAWLER_UA = "facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)";
+const META_CDN = /^https?:\/\/[^/]*(?:cdninstagram\.com|fbcdn\.net)\//i;
+
+/** Logged-out post pages can still be read through the public embed view. */
+async function instagramEmbedImages(page: URL): Promise<string[]> {
+  const m = page.pathname.match(/\/(p|reel|reels|tv)\/([A-Za-z0-9_-]+)/i);
+  if (!m) return [];
+  const kind = m[1].toLowerCase() === "reels" ? "reel" : m[1].toLowerCase();
+  try {
+    const res = await safeFetch(
+      `https://www.instagram.com/${kind}/${m[2]}/embed/captioned/`,
+      1_000_000,
+      "text/html,*/*",
+      8000,
+      { "user-agent": CRAWLER_UA }
+    );
+    const html = res.body.toString("utf8");
+    const found = new Set<string>();
+    for (const tag of html.matchAll(/<img[^>]+src=["']([^"']+)["']/gi)) {
+      const u = decode(tag[1]);
+      if (META_CDN.test(u)) found.add(u);
+    }
+    for (const json of html.matchAll(/"(?:display_url|thumbnail_src)":"([^"]+)"/g)) {
+      const u = decode(json[1].replace(/\\u0026/g, "&").replace(/\\\//g, "/"));
+      if (META_CDN.test(u)) found.add(u);
+    }
+    return [...found].slice(0, 6);
+  } catch {
+    return [];
+  }
+}
+
 function collectFonts(css: string, counts: Map<string, number>) {
   for (const m of css.matchAll(/font-family\s*:\s*([^;}{]+)/gi)) {
     const first = cleanFont(m[1].split(",")[0]);
@@ -46,8 +80,16 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Invalid URL" }, { status: 400 });
   }
 
+  const metaHost = META_HOSTS.test(target.hostname);
+
   try {
-    const page = await safeFetch(target.href, 1_500_000, "text/html,*/*");
+    const page = await safeFetch(
+      target.href,
+      1_500_000,
+      "text/html,*/*",
+      8000,
+      metaHost ? { "user-agent": CRAWLER_UA } : undefined
+    );
     const html = page.body.toString("utf8");
     const base = page.url;
     const abs = (u: string) => {
@@ -72,6 +114,9 @@ export async function GET(req: NextRequest) {
       if (src.startsWith("data:") || /\.svg(\?|$)/i.test(src) || /(sprite|pixel|logo|icon|avatar|1x1)/i.test(src)) continue;
       const u = abs(src);
       if (u) images.add(u);
+    }
+    if (!images.size && /(?:^|\.)instagram\.com$/i.test(base.hostname)) {
+      for (const u of await instagramEmbedImages(base)) images.add(u);
     }
 
     // Fonts: Google Fonts links, inline <style>, style="" attrs, then up to 3 same-page stylesheets

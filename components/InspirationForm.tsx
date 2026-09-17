@@ -4,7 +4,7 @@ import { NameField, NoteField, PurposeField, TagField, ThumbPicker, UrlField, Vi
 
 /** Shared Add / Edit layout (IA §20: edit reuses the add layout). */
 export function InspirationForm({
-  draft, onCancel, onSave, saveLabel = "Save", saving = false, scheduleOpen, setScheduleOpen, hideCalendar,
+  draft, onCancel, onSave, saveLabel = "Save", saving = false, scheduleOpen, setScheduleOpen, hideCalendar, stickyActions = false,
 }: {
   draft: Draft;
   onCancel: () => void;
@@ -14,6 +14,7 @@ export function InspirationForm({
   scheduleOpen?: boolean;
   setScheduleOpen?: (v: boolean) => void;
   hideCalendar?: boolean;
+  stickyActions?: boolean;
 }) {
   const canSave = draft.canSave && !saving;
   const pristine = !draft.dirty;
@@ -46,7 +47,7 @@ export function InspirationForm({
         <NoteField draft={draft} />
       </div>
 
-      <div className="actions">
+      <div className={`actions${stickyActions ? " detail-actions" : ""}`}>
         <button type="button" className={`btn-m line${pristine ? " quiet" : ""}`} onClick={onCancel}>Cancel</button>
         <button type="submit" className="btn-m fill" disabled={!canSave}>{saving ? "Saving…" : saveLabel}</button>
       </div>

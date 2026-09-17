@@ -8,7 +8,15 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   const raw = req.nextUrl.searchParams.get("url") || "";
   try {
-    const res = await safeFetch(raw, 8_000_000, "image/avif,image/webp,image/png,image/jpeg,image/*");
+    // Meta's CDNs drop image requests that arrive without a matching referer.
+    const metaCdn = /(?:cdninstagram\.com|fbcdn\.net)$/i.test(new URL(raw).hostname);
+    const res = await safeFetch(
+      raw,
+      8_000_000,
+      "image/avif,image/webp,image/png,image/jpeg,image/*",
+      8000,
+      metaCdn ? { referer: "https://www.instagram.com/" } : undefined
+    );
     if (res.truncated) throw new Error("Image too large");
     const type = res.contentType.split(";")[0].trim();
     if (!type.startsWith("image/")) throw new Error("Not an image");

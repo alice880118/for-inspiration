@@ -15,6 +15,7 @@ export default function CreateFirst() {
   const { toast, upsertInspiration } = useStore();
   const draft = useDraft();
   const [saving, setSaving] = useState(false);
+  const [leaving, setLeaving] = useState(false);
   const canSave = draft.canSave && !saving;
 
   useEffect(() => {
@@ -22,8 +23,10 @@ export default function CreateFirst() {
   }, [router]);
 
   const goHome = () => {
+    if (leaving) return;
+    setLeaving(true);
     void setMeta("hasCompletedOnboarding", true);
-    router.replace("/home");
+    window.setTimeout(() => router.replace("/home"), 260);
   };
 
   const save = async () => {
@@ -46,7 +49,7 @@ export default function CreateFirst() {
   };
 
   return (
-    <main className="onboard-create">
+    <main className={`onboard-create onboarding-transition${leaving ? " is-leaving" : ""}`}>
       <Backdrop />
       <header>
         <AppIcon width={46} />

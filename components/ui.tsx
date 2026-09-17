@@ -7,7 +7,7 @@ import type { Inspiration, Tag } from "@/lib/types";
 import { normalizeUrl } from "@/lib/image";
 import { useStore } from "./Store";
 import {
-  IconArrowUpRight, IconCalendarAdd, IconCalendarFilled, IconColorAdd, IconHome, IconImage, IconLibrary, IconMore, IconPlus,
+  IconArrowUpRight, IconCalendarAdd, IconCalendarFilled, IconClose, IconColorAdd, IconHome, IconImage, IconLibrary, IconMore, IconPlus,
 } from "./Icons";
 
 export function Backdrop({ soft = false }: { soft?: boolean }) {
@@ -65,7 +65,7 @@ export function Drawer({
 }: { open: boolean; onClose: () => void; children: ReactNode; label: string; sub?: boolean }) {
   const [closing, setClosing] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  const drag = useRef<{ y: number; dy: number } | null>(null);
+  const drag = useRef<{ pointerId: number; y: number; dy: number } | null>(null);
 
   const close = () => {
     if (closing) return;
@@ -136,20 +136,34 @@ export function Drawer({
         <div
           className="handle"
           onPointerDown={(e) => {
-            drag.current = { y: e.clientY, dy: 0 };
-            (e.target as HTMLElement).setPointerCapture(e.pointerId);
+            e.preventDefault();
+            e.stopPropagation();
+            drag.current = { pointerId: e.pointerId, y: e.clientY, dy: 0 };
+            e.currentTarget.setPointerCapture(e.pointerId);
+            ref.current?.classList.add("dragging");
           }}
           onPointerMove={(e) => {
-            if (!drag.current || !ref.current) return;
+            if (!drag.current || drag.current.pointerId !== e.pointerId || !ref.current) return;
+            e.preventDefault();
+            e.stopPropagation();
             drag.current.dy = Math.max(0, e.clientY - drag.current.y);
             ref.current.style.transform = `translate(-50%, ${drag.current.dy}px)`;
           }}
-          onPointerUp={() => {
-            if (!drag.current || !ref.current) return;
+          onPointerUp={(e) => {
+            if (!drag.current || drag.current.pointerId !== e.pointerId || !ref.current) return;
+            e.preventDefault();
+            e.stopPropagation();
             const { dy } = drag.current;
             drag.current = null;
+            ref.current.classList.remove("dragging");
             ref.current.style.transform = "";
             if (dy > 90) close();
+          }}
+          onPointerCancel={(e) => {
+            if (!drag.current || drag.current.pointerId !== e.pointerId || !ref.current) return;
+            drag.current = null;
+            ref.current.classList.remove("dragging");
+            ref.current.style.transform = "";
           }}
         >
           <i />
@@ -163,6 +177,33 @@ export function Drawer({
 let drawerDepth = 0;
 const DrawerCloseCtx = createContext<() => void>(() => {});
 export const useDrawerClose = () => useContext(DrawerCloseCtx);
+
+/** Full-screen image preview, used by the thumbnail picker. */
+export function ImageLightbox({ src, alt = "", onClose }: { src: string; alt?: string; onClose: () => void }) {
+  useEffect(() => {
+    // Capture phase + stopImmediatePropagation: Escape must close only this preview,
+    // not the drawer underneath, which also listens on window.
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.stopImmediatePropagation();
+      onClose();
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [onClose]);
+
+  if (typeof document === "undefined") return null;
+  return createPortal(
+    <div className="img-lightbox" role="dialog" aria-modal="true" aria-label="Image preview" onClick={onClose}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={src} alt={alt} onClick={(e) => e.stopPropagation()} />
+      <button type="button" className="img-lightbox-x" aria-label="Close preview" onClick={onClose}>
+        <IconClose size={20} />
+      </button>
+    </div>,
+    document.body
+  );
+}
 
 export function Palette({
   colors, size = "m", onPick, onAdd, onRemove, editing = false,

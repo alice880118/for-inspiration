@@ -1,20 +1,21 @@
 "use client";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Backdrop } from "@/components/ui";
 import { AppIcon, IconArrowRight } from "@/components/Icons";
 
 /** 00-2 Welcome */
 export default function Welcome() {
   const router = useRouter();
+  const [leaving, setLeaving] = useState(false);
   useEffect(() => {
     router.prefetch("/onboarding");
     router.prefetch("/home");
   }, [router]);
 
   return (
-    <main className="center-stack" style={{ padding: "0 16px 120px" }}>
+    <main className={`center-stack onboarding-transition${leaving ? " is-leaving" : ""}`} style={{ padding: "0 16px 120px" }}>
       <Backdrop />
       <section className="welcome-card" style={{ width: "100%" }}>
         <AppIcon width={60} />
@@ -36,7 +37,17 @@ export default function Welcome() {
         </div>
       </section>
       <div className="fixed-cta">
-        <Link href="/onboarding" prefetch className="btn-primary" onClick={() => router.prefetch("/home")}>
+        <Link
+          href="/onboarding"
+          prefetch
+          className="btn-primary"
+          onClick={(e) => {
+            e.preventDefault();
+            if (leaving) return;
+            setLeaving(true);
+            window.setTimeout(() => router.push("/onboarding"), 260);
+          }}
+        >
           Next <IconArrowRight />
         </Link>
       </div>
