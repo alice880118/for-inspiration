@@ -1,6 +1,6 @@
 "use client";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { saveInspiration, setMeta } from "@/lib/db";
 import { enrichInspirationFromUrl } from "@/lib/image";
 import { Backdrop } from "@/components/ui";
@@ -12,37 +12,35 @@ import { AppIcon, IconArrowRight, IconClose } from "@/components/Icons";
 /** 00-3 Create First Inspiration — simplified Add flow. */
 export default function CreateFirst() {
   const router = useRouter();
-  const { refresh, toast, upsertInspiration } = useStore();
+  const { toast, upsertInspiration } = useStore();
   const draft = useDraft();
   const [saving, setSaving] = useState(false);
-  const [created, setCreated] = useState(0);
   const canSave = draft.canSave && !saving;
 
-  const save = async (another: boolean) => {
+  useEffect(() => {
+    router.prefetch("/home");
+  }, [router]);
+
+  const goHome = () => {
+    void setMeta("hasCompletedOnboarding", true);
+    router.replace("/home");
+  };
+
+  const save = async () => {
     if (!canSave) return;
     setSaving(true);
     try {
       const payload = draft.toDraft();
       const rec = await saveInspiration(payload);
-      await setMeta("hasCompletedOnboarding", true);
       upsertInspiration(rec, payload.imageBlob ?? null);
       if (rec.sourceUrl) {
         void enrichInspirationFromUrl(rec.id, rec.sourceUrl).then((extra) => {
           if (extra?.rec) upsertInspiration(extra.rec, extra.blob);
         });
       }
-      void refresh();
-      if (another) {
-        draft.reset();
-        setCreated((c) => c + 1);
-        toast("Saved — add another one");
-        window.scrollTo({ top: 0, behavior: "smooth" });
-      } else {
-        router.replace("/home");
-      }
+      goHome();
     } catch (e) {
       toast(`Could not save: ${(e as Error).message}`);
-    } finally {
       setSaving(false);
     }
   };
@@ -55,7 +53,7 @@ export default function CreateFirst() {
         <h1 style={{ margin: 0, fontSize: 18, fontWeight: 600 }}>Let&apos;s get started</h1>
       </header>
 
-      <form noValidate onSubmit={(e) => { e.preventDefault(); save(false); }}>
+      <form noValidate onSubmit={(e) => { e.preventDefault(); save(); }}>
         <div className="onboard-fields">
           <ThumbPicker draft={draft} />
 
@@ -84,21 +82,9 @@ export default function CreateFirst() {
           <button type="submit" className="btn-primary" disabled={!canSave}>
             {saving ? "Saving…" : "Create Inspiration"} <IconArrowRight />
           </button>
-          <button
-            type="button"
-            className="btn-text"
-            onClick={async () => {
-              await setMeta("hasCompletedOnboarding", true);
-              router.replace("/home");
-            }}
-          >
+          <button type="button" className="btn-text" onClick={goHome}>
             Create Next
           </button>
-          {created > 0 && (
-            <button type="button" className="btn-link" onClick={() => router.replace("/home")}>
-              {created} saved · Go to Home
-            </button>
-          )}
         </div>
       </form>
     </main>

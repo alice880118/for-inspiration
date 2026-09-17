@@ -22,6 +22,10 @@ export function SplashGate({ children }: { children: React.ReactNode }) {
     let cancelled = false;
 
     (async () => {
+      router.prefetch("/welcome");
+      router.prefetch("/onboarding");
+      router.prefetch("/home");
+
       const params = new URLSearchParams(window.location.search);
       const wantReset = params.get("reset") === "1";
       if (wantReset) {

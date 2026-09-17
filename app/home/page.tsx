@@ -65,7 +65,9 @@ function Home() {
         onAll={() => setActiveTag(null)}
       />
 
-      {!ready ? null : inspirations.length === 0 ? (
+      {!ready && inspirations.length === 0 ? (
+        <div style={{ minHeight: "calc(100dvh - 260px)" }} />
+      ) : inspirations.length === 0 ? (
         <div style={{ minHeight: "calc(100dvh - 260px)", display: "grid", placeItems: "center" }}>
           <div className="empty">
             <div className="icon-box"><IconImage /></div>
