@@ -163,7 +163,38 @@ export function DatePickerPanel({
         {withTime && (
           <label className="time-row">
             <span className="label">Time</span>
-            <input type="time" value={time} onChange={(e) => setTime(e.target.value)} />
+            <span className="time-controls">
+              <select
+                aria-label="Hour"
+                value={String(((Number(time.slice(0, 2)) + 11) % 12) + 1)}
+                onChange={(e) => {
+                  const current = Number(time.slice(0, 2));
+                  const next = (Number(e.target.value) % 12) + (current >= 12 ? 12 : 0);
+                  setTime(`${String(next).padStart(2, "0")}:${time.slice(3, 5)}`);
+                }}
+              >
+                {Array.from({ length: 12 }, (_, i) => i + 1).map((hour) => <option key={hour}>{hour}</option>)}
+              </select>
+              <span>:</span>
+              <select
+                aria-label="Minute"
+                value={time.slice(3, 5)}
+                onChange={(e) => setTime(`${time.slice(0, 2)}:${e.target.value}`)}
+              >
+                {Array.from({ length: 60 }, (_, i) => String(i).padStart(2, "0")).map((minute) => <option key={minute}>{minute}</option>)}
+              </select>
+              <select
+                aria-label="AM or PM"
+                value={Number(time.slice(0, 2)) >= 12 ? "PM" : "AM"}
+                onChange={(e) => {
+                  const hour = Number(time.slice(0, 2)) % 12 + (e.target.value === "PM" ? 12 : 0);
+                  setTime(`${String(hour).padStart(2, "0")}:${time.slice(3, 5)}`);
+                }}
+              >
+                <option>AM</option>
+                <option>PM</option>
+              </select>
+            </span>
           </label>
         )}
       </div>

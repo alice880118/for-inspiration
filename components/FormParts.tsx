@@ -1,14 +1,14 @@
 "use client";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Tag } from "@/lib/types";
 import { useStore } from "./Store";
 import type { Draft } from "./useDraft";
-import { Drawer, Palette, TagPill, useDrawerClose } from "./ui";
+import { Drawer, ImageLightbox, Palette, TagPill, useDrawerClose } from "./ui";
 import { ChipListPanel, CategoryPanel } from "./Panels";
 import { ColorPickerPanel } from "./ColorPicker";
 import { DatePickerPanel, buildMarks } from "./Calendar";
 import {
-  IconCalendarAdd, IconCheckbox, IconClose, IconImageSparkle, IconImageUpload, IconLink, IconPencil, IconPlus, IconUpload,
+  IconCalendarAdd, IconCheckbox, IconClose, IconImageSparkle, IconImageUpload, IconLink, IconMore, IconPencil, IconPlus, IconUpload,
 } from "./Icons";
 
 export { TAG_COLORS } from "./Panels";
@@ -110,6 +110,7 @@ export function ThumbPicker({ draft }: { draft: Draft }) {
   const { toast } = useStore();
   const fileRef = useRef<HTMLInputElement>(null);
   const [choose, setChoose] = useState(false);
+  const [zoom, setZoom] = useState(false);
 
   const fromWeb = async () => {
     if (!d.sourceUrl.trim()) return toast("Paste a website URL first");
@@ -125,7 +126,9 @@ export function ThumbPicker({ draft }: { draft: Draft }) {
       <div className={`thumb${previewUrl ? " filled" : ""}`}>
         {previewUrl ? (
           <>
-            <img className="cover" src={previewUrl} alt="Selected thumbnail" />
+            <button type="button" className="thumb-zoom" aria-label="View larger image" onClick={() => setZoom(true)}>
+              <img className="cover" src={previewUrl} alt="Selected thumbnail" />
+            </button>
             <button type="button" className="thumb-x" aria-label="Remove image" onClick={() => patch({ imageBlob: null, palette: [] })}>
               <IconClose size={18} />
             </button>
@@ -159,6 +162,9 @@ export function ThumbPicker({ draft }: { draft: Draft }) {
       <Drawer open={choose} onClose={() => setChoose(false)} label="Choose Image" sub>
         <ChooseImage images={d.webImages} onPick={(u) => { useWebImage(u); setChoose(false); }} />
       </Drawer>
+      {zoom && previewUrl && (
+        <ImageLightbox src={previewUrl} alt="Thumbnail preview" onClose={() => setZoom(false)} />
+      )}
     </div>
   );
 }
@@ -210,6 +216,54 @@ export function NameField({ draft }: { draft: Draft }) {
 }
 
 /* ---------- Fonts + Colors (Visual info) ---------- */
+function FontTagRow({ fonts, onExpand }: { fonts: string[]; onExpand: () => void }) {
+  const rowRef = useRef<HTMLDivElement>(null);
+  const measureRef = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(fonts.length);
+
+  useEffect(() => {
+    const row = rowRef.current;
+    const measure = measureRef.current;
+    if (!row || !measure) return;
+    const update = () => {
+      const widths = Array.from(measure.children).map((node) => (node as HTMLElement).getBoundingClientRect().width);
+      const total = widths.reduce((sum, width) => sum + width, Math.max(0, widths.length - 1) * 4);
+      if (total <= row.clientWidth) {
+        setVisible(fonts.length);
+        return;
+      }
+      const available = Math.max(0, row.clientWidth - 32);
+      let used = 0;
+      let count = 0;
+      for (const width of widths) {
+        const next = used + (count ? 4 : 0) + width;
+        if (next > available) break;
+        used = next;
+        count++;
+      }
+      setVisible(count);
+    };
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(row);
+    return () => observer.disconnect();
+  }, [fonts]);
+
+  return (
+    <div className="font-tag-row" ref={rowRef}>
+      {fonts.slice(0, visible).map((font) => <span key={font} className="font-tag">{font}</span>)}
+      {visible < fonts.length && (
+        <button type="button" className="font-tag-more" aria-label="View all fonts" onClick={onExpand}>
+          <IconMore size={24} />
+        </button>
+      )}
+      <div className="font-tag-measure" ref={measureRef} aria-hidden>
+        {fonts.map((font) => <span key={font} className="font-tag">{font}</span>)}
+      </div>
+    </div>
+  );
+}
+
 export function VisualFields({ draft }: { draft: Draft }) {
   const { d, patch, previewUrl } = draft;
   const [fontOpen, setFontOpen] = useState(false);
@@ -223,12 +277,13 @@ export function VisualFields({ draft }: { draft: Draft }) {
             <IconPencil />
           </button>
         </div>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-          {d.fonts.map((f) => <span key={f} className="font-tag">{f}</span>)}
-          {d.fonts.length === 0 && (
+        {d.fonts.length > 0 ? (
+          <FontTagRow fonts={d.fonts} onExpand={() => setFontOpen(true)} />
+        ) : (
+          <div className="font-tag-row">
             <button type="button" className="font-tag dashed" onClick={() => setFontOpen(true)}>Add Font</button>
-          )}
-        </div>
+          </div>
+        )}
       </div>
       <div style={{ padding: "4px 0" }}>
         <Palette colors={d.palette} onPick={(i) => setColor(i)} onAdd={() => setColor(-1)} />
@@ -318,7 +373,7 @@ export function TagField({ draft }: { draft: Draft }) {
 
 /* ---------- Purpose / Reading schedule ---------- */
 const fmt = (ms: number) =>
-  new Date(ms).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false });
+  new Date(ms).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", hour12: true });
 
 export function PurposeField({
   draft, hideCalendar = false, scheduleOpen, setScheduleOpen,

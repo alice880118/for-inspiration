@@ -36,24 +36,38 @@ export function hsvToHex({ h, s, v }: HSV, a = 1): string {
 
 function useDrag(onMove: (x: number, y: number) => void) {
   const ref = useRef<HTMLDivElement>(null);
-  const handler = (e: React.PointerEvent) => {
-    const el = ref.current!;
-    el.setPointerCapture(e.pointerId);
-    const move = (ev: PointerEvent | React.PointerEvent) => {
-      const r = el.getBoundingClientRect();
-      onMove(clamp((ev.clientX - r.left) / r.width), clamp((ev.clientY - r.top) / r.height));
-    };
-    move(e);
-    const up = () => {
-      el.removeEventListener("pointermove", move);
-      el.removeEventListener("pointerup", up);
-      el.removeEventListener("pointercancel", up);
-    };
-    el.addEventListener("pointermove", move);
-    el.addEventListener("pointerup", up);
-    el.addEventListener("pointercancel", up);
+  const pointerId = useRef<number | null>(null);
+  const move = (e: React.PointerEvent<HTMLDivElement>) => {
+    const el = ref.current;
+    if (!el || pointerId.current !== e.pointerId) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const r = el.getBoundingClientRect();
+    if (r.width <= 0 || r.height <= 0) return;
+    onMove(clamp((e.clientX - r.left) / r.width), clamp((e.clientY - r.top) / r.height));
   };
-  return { ref, onPointerDown: handler };
+  const finish = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (pointerId.current !== e.pointerId) return;
+    e.preventDefault();
+    e.stopPropagation();
+    pointerId.current = null;
+  };
+  const start = (e: React.PointerEvent<HTMLDivElement>) => {
+    const el = ref.current;
+    if (!el) return;
+    e.preventDefault();
+    e.stopPropagation();
+    pointerId.current = e.pointerId;
+    el.setPointerCapture(e.pointerId);
+    move(e);
+  };
+  return {
+    ref,
+    onPointerDown: start,
+    onPointerMove: move,
+    onPointerUp: finish,
+    onPointerCancel: finish,
+  };
 }
 
 /**
@@ -78,6 +92,14 @@ export function ColorPickerPanel({
   const [hsv, setHsv] = useState<HSV>(start.hsv);
   const [alpha, setAlpha] = useState(start.a);
   const [hexText, setHexText] = useState(hsvToHex(start.hsv).slice(1));
+  const [imagePicker, setImagePicker] = useState(false);
+  const [loupe, setLoupe] = useState<null | {
+    left: number;
+    top: number;
+    backgroundSize: string;
+    backgroundPosition: string;
+    color: string;
+  }>(null);
   const imgRef = useRef<HTMLImageElement>(null);
 
   // select another swatch → load it into the controls
@@ -101,33 +123,68 @@ export function ColorPickerPanel({
   const alp = useDrag((x) => commit(hsv, x));
 
   const pickFromScreen = async () => {
+    if (image) {
+      setImagePicker((active) => {
+        if (!active) toast("Press and drag on the image to pick a color");
+        return !active;
+      });
+      setLoupe(null);
+      return;
+    }
     const ED = (window as unknown as { EyeDropper?: new () => { open: () => Promise<{ sRGBHex: string }> } }).EyeDropper;
     if (ED) {
       try {
         const { sRGBHex } = await new ED().open();
         commit(hexToHsvA(sRGBHex).hsv, alpha);
       } catch { /* cancelled */ }
-    } else if (image) toast("Tap the thumbnail to pick a color");
-    else toast("Eyedropper isn't supported in this browser");
+    } else toast("Eyedropper isn't supported in this browser");
   };
 
-  const sampleImage = (e: React.PointerEvent<HTMLImageElement>) => {
+  const sampleImage = (e: React.PointerEvent<HTMLImageElement>, finish = false) => {
+    if (!imagePicker) return;
+    e.preventDefault();
+    e.stopPropagation();
     const img = imgRef.current;
-    if (!img) return;
+    if (!img || img.naturalWidth <= 0 || img.naturalHeight <= 0) return;
+    if (e.type === "pointerdown") img.setPointerCapture(e.pointerId);
     const r = img.getBoundingClientRect();
     // object-fit: cover mapping
     const scale = Math.max(r.width / img.naturalWidth, r.height / img.naturalHeight);
     const dx = (r.width - img.naturalWidth * scale) / 2;
     const dy = (r.height - img.naturalHeight * scale) / 2;
-    const x = Math.floor((e.clientX - r.left - dx) / scale);
-    const y = Math.floor((e.clientY - r.top - dy) / scale);
+    const localX = clamp(e.clientX - r.left, 0, r.width);
+    const localY = clamp(e.clientY - r.top, 0, r.height);
+    const x = Math.min(img.naturalWidth - 1, Math.max(0, Math.floor((localX - dx) / scale)));
+    const y = Math.min(img.naturalHeight - 1, Math.max(0, Math.floor((localY - dy) / scale)));
     const c = document.createElement("canvas");
     c.width = 1;
     c.height = 1;
-    const ctx = c.getContext("2d")!;
-    ctx.drawImage(img, x, y, 1, 1, 0, 0, 1, 1);
-    const [R, G, B] = ctx.getImageData(0, 0, 1, 1).data;
-    commit(hexToHsvA("#" + [R, G, B].map((v) => v.toString(16).padStart(2, "0")).join("")).hsv, alpha);
+    const ctx = c.getContext("2d", { willReadFrequently: true });
+    if (!ctx) return;
+    let pixel: Uint8ClampedArray;
+    try {
+      ctx.drawImage(img, x, y, 1, 1, 0, 0, 1, 1);
+      pixel = ctx.getImageData(0, 0, 1, 1).data;
+    } catch {
+      setImagePicker(false);
+      setLoupe(null);
+      toast("This image cannot be sampled");
+      return;
+    }
+    const [R, G, B] = pixel;
+    const sampled = "#" + [R, G, B].map((v) => v.toString(16).padStart(2, "0")).join("");
+    commit(hexToHsvA(sampled).hsv, alpha);
+    setLoupe({
+      left: localX,
+      top: localY,
+      backgroundSize: `${img.naturalWidth * scale * 4}px ${img.naturalHeight * scale * 4}px`,
+      backgroundPosition: `${24 - (localX - dx) * 4}px ${24 - (localY - dy) * 4}px`,
+      color: sampled,
+    });
+    if (finish) {
+      setImagePicker(false);
+      window.setTimeout(() => setLoupe(null), 180);
+    }
   };
 
   const pure = hsvToHex({ h: hsv.h, s: 1, v: 1 });
@@ -146,9 +203,37 @@ export function ColorPickerPanel({
 
       <div style={{ display: "flex", gap: 8 }}>
         {image && (
-          <div className="cp-thumb">
+          <div className={`cp-thumb${imagePicker ? " picking" : ""}`}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img ref={imgRef} src={image} alt="Tap to pick a color from the image" onPointerDown={sampleImage} draggable={false} />
+            <img
+              ref={imgRef}
+              src={image}
+              alt="Press and drag to pick a color from the image"
+              onPointerDown={(e) => sampleImage(e)}
+              onPointerMove={(e) => {
+                if (e.currentTarget.hasPointerCapture(e.pointerId)) sampleImage(e);
+              }}
+              onPointerUp={(e) => sampleImage(e, true)}
+              onPointerCancel={() => {
+                setImagePicker(false);
+                setLoupe(null);
+              }}
+              draggable={false}
+            />
+            {loupe && (
+              <span
+                className="cp-loupe"
+                aria-hidden
+                style={{
+                  left: loupe.left,
+                  top: loupe.top,
+                  backgroundImage: `url("${image}")`,
+                  backgroundSize: loupe.backgroundSize,
+                  backgroundPosition: loupe.backgroundPosition,
+                  borderColor: loupe.color,
+                }}
+              />
+            )}
           </div>
         )}
         <div
@@ -174,7 +259,13 @@ export function ColorPickerPanel({
       </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
-        <button type="button" aria-label="Eyedropper" onClick={pickFromScreen} style={{ display: "grid" }}>
+        <button
+          type="button"
+          className={`cp-eyedropper${imagePicker ? " on" : ""}`}
+          aria-label={image ? "Pick a color from the image" : "Pick a color from the screen"}
+          aria-pressed={image ? imagePicker : undefined}
+          onClick={pickFromScreen}
+        >
           <IconEyedropper />
         </button>
         <div style={{ flex: 1, display: "flex", gap: 8, fontSize: 14, fontWeight: 500 }}>

@@ -27,13 +27,19 @@ async function assertPublic(url: URL) {
 }
 
 /** fetch() that refuses private-network targets (also on every redirect hop) and caps the body size. */
-export async function safeFetch(raw: string, maxBytes: number, accept: string, timeoutMs = 8000) {
+export async function safeFetch(
+  raw: string,
+  maxBytes: number,
+  accept: string,
+  timeoutMs = 8000,
+  extraHeaders?: Record<string, string>
+) {
   let url = new URL(raw);
   for (let hop = 0; hop < 5; hop++) {
     await assertPublic(url);
     const res = await fetch(url, {
       redirect: "manual",
-      headers: { "user-agent": UA, accept },
+      headers: { "user-agent": UA, accept, ...extraHeaders },
       signal: AbortSignal.timeout(timeoutMs),
     });
     if (res.status >= 300 && res.status < 400 && res.headers.get("location")) {

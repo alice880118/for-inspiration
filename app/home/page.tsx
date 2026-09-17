@@ -3,6 +3,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { importBackup } from "@/lib/db";
 import { filterInspirations } from "@/lib/filter";
+import type { Inspiration } from "@/lib/types";
 import { useStore } from "@/components/Store";
 import { TopMain, type SortKey } from "@/components/TopMain";
 import { Backdrop, BottomNav, CardM, CardS } from "@/components/ui";
@@ -45,9 +46,11 @@ function Home() {
     [inspirations, query, color, activeTag, sort, tagById]
   );
   const recent = filtered.slice(0, 10);
+  const byName = (a: Inspiration, b: Inspiration) =>
+    (a.title || "Untitled").localeCompare(b.title || "Untitled", undefined, { sensitivity: "base", numeric: true });
   const sections = tags
     .filter((t) => !activeTag || t.id === activeTag)
-    .map((t) => ({ tag: t, items: filtered.filter((i) => i.tags.includes(t.id)) }))
+    .map((t) => ({ tag: t, items: filtered.filter((i) => i.tags.includes(t.id)).sort(byName) }))
     .filter((s) => s.items.length > 0);
   const activeTagColor = activeTag ? tagById.get(activeTag)?.displayColor : null;
 

@@ -70,7 +70,7 @@ function Detail() {
   const status = rec ? effectiveStatus({ ...rec, ...draft.toDraft() } as Inspiration) : "none";
 
   return (
-    <main className="page page-top">
+    <main className="page page-top detail-page">
       <Backdrop soft />
       <nav className="page-nav" style={{ marginBottom: 24 }}>
         <div className="left">
@@ -94,6 +94,7 @@ function Detail() {
             scheduleOpen={scheduleOpen}
             setScheduleOpen={setScheduleOpen}
             hideCalendar
+            stickyActions
             onCancel={back}
             onSave={async () => {
               setSaving(true);
@@ -110,7 +111,7 @@ function Detail() {
             }}
           />
 
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 12, justifyContent: "space-between", alignItems: "center", marginTop: 20, fontSize: 12 }}>
+          <div className="detail-meta">
             <span className="muted">
               Added {new Date(rec.createdAt).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}
               {status === "overdue" && <b style={{ color: "var(--danger)" }}> · Overdue</b>}
