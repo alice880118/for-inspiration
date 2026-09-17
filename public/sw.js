@@ -1,49 +1,134 @@
 /* Pobbi service worker — app-shell caching only. User data lives in IndexedDB and is never touched here. */
-const VERSION = "pobbi-v2";
-const SHELL = ["/", "/home", "/welcome", "/onboarding", "/library", "/reading", "/settings", "/settings/categories", "/settings/tags", "/notifications", "/reading/history", "/inspiration", "/manifest.webmanifest"];
+const VERSION = "pobbi-v3";
+const SHELL = [
+  "/",
+  "/home",
+  "/welcome",
+  "/onboarding",
+  "/library",
+  "/reading",
+  "/settings",
+  "/settings/categories",
+  "/settings/tags",
+  "/notifications",
+  "/reading/history",
+  "/inspiration",
+  "/manifest.webmanifest",
+];
 
 self.addEventListener("install", (e) => {
-  e.waitUntil(caches.open(VERSION).then((c) => c.addAll(SHELL).catch(() => {})).then(() => self.skipWaiting()));
+  e.waitUntil(
+    caches
+      .open(VERSION)
+      .then((c) => c.addAll(SHELL).catch(() => {}))
+      .then(() => self.skipWaiting())
+  );
 });
 
 self.addEventListener("activate", (e) => {
   e.waitUntil(
-    caches.keys()
+    caches
+      .keys()
       .then((keys) => Promise.all(keys.filter((k) => k !== VERSION).map((k) => caches.delete(k))))
       .then(() => self.clients.claim())
   );
 });
+
+function sameOrigin(url) {
+  return url.origin === location.origin;
+}
+
+function isApi(url) {
+  return sameOrigin(url) && url.pathname.startsWith("/api/");
+}
+
+function isStatic(url) {
+  return (
+    (sameOrigin(url) && url.pathname.startsWith("/_next/static/")) ||
+    (sameOrigin(url) && url.pathname.startsWith("/icons/")) ||
+    url.hostname === "fonts.googleapis.com" ||
+    url.hostname === "fonts.gstatic.com"
+  );
+}
+
+function isAppDoc(req, url) {
+  if (req.mode === "navigate" || req.destination === "document") return true;
+  if (!sameOrigin(url) || isApi(url)) return false;
+  return Boolean(
+    req.headers.get("RSC") === "1" ||
+      req.headers.get("Next-Router-State-Tree") ||
+      req.headers.get("Next-Url")
+  );
+}
+
+function put(req, res) {
+  if (!res || !res.ok) return res;
+  const copy = res.clone();
+  caches.open(VERSION).then((c) => c.put(req, copy));
+  return res;
+}
+
+function fallbackPage(url) {
+  return caches
+    .match(url.pathname)
+    .then((hit) => hit || caches.match("/") || caches.match("/home"))
+    .then(
+      (hit) =>
+        hit ||
+        new Response("Offline", {
+          status: 503,
+          headers: { "Content-Type": "text/plain; charset=utf-8" },
+        })
+    );
+}
 
 self.addEventListener("fetch", (e) => {
   const req = e.request;
   if (req.method !== "GET") return;
   const url = new URL(req.url);
 
-  // API calls always go to the network
-  if (url.origin === location.origin && url.pathname.startsWith("/api/")) return;
+  if (isApi(url)) return;
 
-  // Hashed build assets + fonts: cache-first
-  if ((url.origin === location.origin && url.pathname.startsWith("/_next/static/")) ||
-      url.hostname === "fonts.googleapis.com" || url.hostname === "fonts.gstatic.com" ||
-      (url.origin === location.origin && url.pathname.startsWith("/icons/"))) {
+  if (isStatic(url)) {
     e.respondWith(
-      caches.match(req).then((hit) => hit || fetch(req).then((res) => {
-        const copy = res.clone();
-        caches.open(VERSION).then((c) => c.put(req, copy));
-        return res;
-      }))
+      caches.match(req).then((hit) => {
+        if (hit) return hit;
+        return fetch(req)
+          .then((res) => put(req, res))
+          .catch(
+            () =>
+              new Response("", {
+                status: 503,
+                statusText: "Offline",
+              })
+          );
+      })
     );
     return;
   }
 
-  // Pages: network-first, fall back to cache when offline
-  if (req.mode === "navigate") {
+  if (isAppDoc(req, url)) {
     e.respondWith(
-      fetch(req).then((res) => {
-        const copy = res.clone();
-        caches.open(VERSION).then((c) => c.put(url.pathname, copy));
-        return res;
-      }).catch(() => caches.match(url.pathname).then((hit) => hit || caches.match("/home")))
+      fetch(req)
+        .then((res) => {
+          put(req, res);
+          if (res.ok && (req.mode === "navigate" || req.destination === "document")) {
+            const copy = res.clone();
+            caches.open(VERSION).then((c) => c.put(url.pathname, copy));
+          }
+          return res;
+        })
+        .catch(() =>
+          caches.match(req).then((hit) => {
+            if (hit) return hit;
+            const rsc =
+              req.headers.get("RSC") === "1" || req.headers.get("Next-Router-State-Tree");
+            if (rsc) {
+              return new Response("", { status: 503, statusText: "Offline" });
+            }
+            return fallbackPage(url);
+          })
+        )
     );
   }
 });
@@ -54,7 +139,10 @@ self.addEventListener("notificationclick", (e) => {
   e.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
       for (const c of list) {
-        if ("focus" in c) { c.navigate(url); return c.focus(); }
+        if ("focus" in c) {
+          c.navigate(url);
+          return c.focus();
+        }
       }
       return self.clients.openWindow(url);
     })

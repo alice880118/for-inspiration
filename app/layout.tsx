@@ -6,13 +6,25 @@ import { SwRegister } from "@/components/SwRegister";
 import { AddDrawerHost } from "@/components/AddDrawer";
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://for-inspiration.vercel.app"),
   title: "Pobbi",
   description: "Your AI-powered inspiration assistant — collect, organize and revisit references.",
   applicationName: "Pobbi",
   appleWebApp: { capable: true, title: "Pobbi", statusBarStyle: "default" },
   icons: {
-    icon: [{ url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" }],
-    apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180" }],
+    icon: [
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+  },
+  openGraph: {
+    title: "Pobbi",
+    description: "Your AI-powered inspiration assistant — collect, organize and revisit references.",
+    url: "/",
+    siteName: "Pobbi",
+    type: "website",
+    images: [{ url: "/og.png", width: 512, height: 512, alt: "Pobbi" }],
   },
   formatDetection: { telephone: false },
 };

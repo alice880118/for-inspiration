@@ -1,5 +1,4 @@
 "use client";
-import { useRouter } from "next/navigation";
 import { useEffect, useRef } from "react";
 import { getMeta, resetToOnboarding } from "@/lib/db";
 import { useStore } from "@/components/Store";
@@ -8,14 +7,14 @@ import { PobbiWordmark } from "@/components/Icons";
 
 /** 00-1 Splash — brand + decide first-time vs returning user. */
 export default function Splash() {
-  const router = useRouter();
   const store = useStore();
   const storeRef = useRef(store);
   storeRef.current = store;
 
   useEffect(() => {
     const started = Date.now();
-    const go = (path: string) => router.replace(path);
+    /* Full load so the SW can serve cached HTML when offline (client RSC fetch cannot). */
+    const go = (path: string) => window.location.replace(path);
 
     (async () => {
       const params = new URLSearchParams(window.location.search);
@@ -55,13 +54,13 @@ export default function Splash() {
         go(q ? `/home?${q}` : "/home");
       }, wait);
     })();
-  }, [router]);
+  }, []);
 
   return (
     <main className="splash" aria-label="Loading Pobbi">
       <Backdrop />
       <div className="mark">
-        <PobbiWordmark />
+        <PobbiWordmark width={112} />
       </div>
     </main>
   );
