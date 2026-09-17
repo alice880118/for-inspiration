@@ -70,7 +70,7 @@ function Library() {
   ) : null;
 
   return (
-    <main>
+    <main className="lib-page">
       <Backdrop soft />
       <TopMain
         query={query} setQuery={setQuery} color={color} setColor={setColor} items={inspirations}
@@ -89,11 +89,13 @@ function Library() {
           <FlatItem key={i.id} item={i} onOpen={() => router.push(`/inspiration?id=${i.id}`)} />
         ))}
         {list.length === 0 && (
-          <div className="empty" style={{ padding: "64px 16px" }}>
-            <p className="h2">{inspirations.length ? "No results" : "Your library is empty"}</p>
-            <p className="body13" style={{ color: "var(--body)", margin: 0 }}>
-              {inspirations.length ? "Try another keyword, color or filter." : "Saved inspirations will be listed here."}
-            </p>
+          <div className={`empty${inspirations.length ? "" : " lib-empty"}`} style={inspirations.length ? { padding: "64px 16px" } : undefined}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <p className="h2">{inspirations.length ? "No results" : "Your library is empty"}</p>
+              <p className="body13" style={{ color: "var(--body)", margin: 0 }}>
+                {inspirations.length ? "Try another keyword, color or filter." : "Saved inspirations will be listed here."}
+              </p>
+            </div>
             {inspirations.length ? (
               <button className="btn-pill" onClick={() => { setQuery(""); setColor(null); setF({ tags: [], caseStudy: false, onDate: null }); }}>Clear filters</button>
             ) : (

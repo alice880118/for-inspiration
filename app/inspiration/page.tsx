@@ -113,7 +113,7 @@ function Detail() {
 
           <div className="detail-meta">
             <span className="muted">
-              Added {new Date(rec.createdAt).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}
+              Added {new Date(rec.createdAt).toLocaleDateString("en-US", { year: "numeric", month: "2-digit", day: "2-digit" })}
               {status === "overdue" && <b style={{ color: "var(--danger)" }}> · Overdue</b>}
             </span>
             <span style={{ display: "flex", gap: 16 }}>

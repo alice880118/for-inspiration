@@ -33,6 +33,9 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  // Inputs render at 12px, which makes iOS auto-zoom on focus unless scaling is pinned.
+  maximumScale: 1,
+  userScalable: false,
   viewportFit: "cover",
   themeColor: "#ffffff",
   interactiveWidget: "resizes-content",

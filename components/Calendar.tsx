@@ -161,8 +161,7 @@ export function DatePickerPanel({
         <CalendarHeader cal={cal} />
         <CalendarGrid cal={cal} selected={day} marks={marks} onSelect={setDay} />
         {withTime && (
-          <label className="time-row">
-            <span className="label">Time</span>
+          <div className="time-row">
             <span className="time-controls">
               <select
                 aria-label="Hour"
@@ -175,7 +174,6 @@ export function DatePickerPanel({
               >
                 {Array.from({ length: 12 }, (_, i) => i + 1).map((hour) => <option key={hour}>{hour}</option>)}
               </select>
-              <span>:</span>
               <select
                 aria-label="Minute"
                 value={time.slice(3, 5)}
@@ -195,7 +193,7 @@ export function DatePickerPanel({
                 <option>PM</option>
               </select>
             </span>
-          </label>
+          </div>
         )}
       </div>
       <div className="form-actions">
