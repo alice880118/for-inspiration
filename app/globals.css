@@ -83,15 +83,45 @@ a { color: inherit; text-decoration: none; }
   .app { box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.04), 0 30px 80px rgba(0, 60, 164, 0.08); }
 }
 
-/* Blurred gradient backdrop — rebuilt from the 5 blurred ellipses in Figma */
-.backdrop { position: fixed; inset: 0; max-width: var(--app-w); margin: 0 auto; z-index: -1; overflow: hidden; pointer-events: none; }
-.backdrop i { position: absolute; border-radius: 50%; }
-.backdrop i:nth-child(1) { left: -31%; top: -8%; width: 88%; height: 40%; background: radial-gradient(closest-side, #daffF0, rgba(218, 255, 240, 0.2)); filter: blur(60px); opacity: 0.65; }
-.backdrop i:nth-child(2) { left: -39%; top: 48%; width: 96%; height: 43%; background: radial-gradient(closest-side, #b3dfff, rgba(208, 235, 255, 0.6)); filter: blur(112px); }
-.backdrop i:nth-child(3) { left: 11%; top: 53%; width: 88%; height: 40%; background: radial-gradient(closest-side, #daffF0, rgba(218, 255, 240, 0.2)); filter: blur(60px); opacity: 0.65; }
-.backdrop i:nth-child(4) { left: 32%; top: 26%; width: 103%; height: 46%; background: radial-gradient(closest-side, #86c5f1, rgba(213, 238, 255, 0.6)); filter: blur(121px); }
-.backdrop i:nth-child(5) { left: 11%; top: 4%; width: 88%; height: 39%; background: radial-gradient(closest-side, #6da3fa, rgba(213, 229, 255, 0.6)); filter: blur(250px); opacity: 0.87; }
+/* Figma 5-ellipse wash: pre-softened radial fills (no live Gaussian blur). Motion is transform-only. */
+.backdrop {
+  position: fixed; inset: 0; max-width: var(--app-w); margin: 0 auto; z-index: -1;
+  overflow: hidden; pointer-events: none; transform: translateZ(0); contain: paint;
+}
+.backdrop i {
+  position: absolute; border-radius: 50%;
+  animation: blob-drift 18s ease-in-out infinite;
+}
+.backdrop i:nth-child(1) {
+  left: -40%; top: -18%; width: 110%; height: 58%;
+  background: radial-gradient(closest-side, rgba(218, 255, 240, 0.95), rgba(218, 255, 240, 0));
+  opacity: 0.65; animation-duration: 16s;
+}
+.backdrop i:nth-child(2) {
+  left: -48%; top: 38%; width: 120%; height: 62%;
+  background: radial-gradient(closest-side, rgba(179, 223, 255, 0.9), rgba(208, 235, 255, 0));
+  animation-duration: 22s; animation-direction: reverse;
+}
+.backdrop i:nth-child(3) {
+  left: 4%; top: 42%; width: 110%; height: 58%;
+  background: radial-gradient(closest-side, rgba(218, 255, 240, 0.9), rgba(218, 255, 240, 0));
+  opacity: 0.65; animation-duration: 20s; animation-delay: -6s;
+}
+.backdrop i:nth-child(4) {
+  left: 18%; top: 12%; width: 128%; height: 68%;
+  background: radial-gradient(closest-side, rgba(134, 197, 241, 0.75), rgba(213, 238, 255, 0));
+  animation-duration: 24s; animation-delay: -10s;
+}
+.backdrop i:nth-child(5) {
+  left: -8%; top: -12%; width: 130%; height: 70%;
+  background: radial-gradient(closest-side, rgba(109, 163, 250, 0.7), rgba(213, 229, 255, 0));
+  opacity: 0.87; animation-duration: 26s; animation-direction: reverse;
+}
 .backdrop.soft { opacity: 0.45; }
+@keyframes blob-drift {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(4%, -3%, 0) scale(1.06); }
+}
 
 .bottom-fade {
   position: fixed; left: 50%; transform: translateX(-50%); bottom: 0;
@@ -412,7 +442,6 @@ a { color: inherit; text-decoration: none; }
 .splash .mark {
   width: 178px;
   height: 38px;
-  will-change: transform, opacity;
   animation: mark-in .7s cubic-bezier(.22,.82,.2,1) both, mark-breathe 2.4s ease-in-out .7s infinite;
 }
 .splash .mark img { width: 178px; height: 38px; }
@@ -627,3 +656,28 @@ a { color: inherit; text-decoration: none; }
 .notif { display: flex; align-items: center; gap: 12px; padding: 16px; border-radius: var(--r-md); background: linear-gradient(180deg, rgba(238,238,238,.6), rgba(238,238,238,.45)); width: 100%; text-align: left; }
 .notif b { display: block; font-size: 14px; font-weight: 600; color: var(--ink); }
 .notif small { display: block; font-size: 12px; color: #707070; margin-top: 4px; }
+
+/* Phones: keep glass fills and motion; never sample the page with backdrop-filter. */
+@media (hover: none), (pointer: coarse) {
+  .thumb .thumb-x,
+  .search-scrim,
+  .search-panel,
+  .nav-pill,
+  .scrim,
+  .modal,
+  .cal-card,
+  .week-card,
+  .reminder {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+  .search-scrim,
+  .scrim,
+  .modal {
+    background: rgba(212, 212, 212, 0.72);
+  }
+  .nav-pill {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(255, 255, 255, 0.94));
+    box-shadow: 0 6px 24px rgba(0, 40, 100, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  }
+}

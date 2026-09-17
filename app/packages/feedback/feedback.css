@@ -163,3 +163,14 @@
   width: 100%;
   max-width: calc(var(--app-w) - 32px);
 }
+
+@media (hover: none), (pointer: coarse) {
+  .fb-popup,
+  .fb-delete-scrim {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  .fb-delete-scrim {
+    background: rgba(212, 212, 212, 0.72);
+  }
+}
