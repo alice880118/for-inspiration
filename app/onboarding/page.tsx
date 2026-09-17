@@ -40,37 +40,39 @@ export default function CreateFirst() {
   };
 
   return (
-    <main style={{ padding: "calc(var(--safe-top) + 60px) 31px 200px", maxWidth: 402, margin: "0 auto" }}>
+    <main className="onboard-create">
       <Backdrop />
-      <header style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 32 }}>
+      <header>
         <AppIcon width={46} />
         <h1 style={{ margin: 0, fontSize: 18, fontWeight: 600 }}>Let&apos;s get started</h1>
       </header>
 
-      <form noValidate onSubmit={(e) => { e.preventDefault(); save(false); }} style={{ display: "flex", flexDirection: "column", gap: 16, alignItems: "center" }}>
-        <ThumbPicker draft={draft} />
+      <form noValidate onSubmit={(e) => { e.preventDefault(); save(false); }}>
+        <div className="onboard-fields">
+          <ThumbPicker draft={draft} />
 
-        <UrlField draft={draft} glass label="Website URL" placeholder="Paste or type a URL..." />
-        {draft.error && <p role="alert" style={{ margin: "-8px 0 0", fontSize: 12, color: "var(--danger)", alignSelf: "flex-start" }}>{draft.error}</p>}
+          <UrlField draft={draft} glass label="Website URL" placeholder="Paste or type a URL..." />
+          {draft.error && <p role="alert" style={{ margin: "-8px 0 0", fontSize: 12, color: "var(--danger)", alignSelf: "flex-start" }}>{draft.error}</p>}
 
-        <div style={{ width: "100%" }}>
-          <TagField draft={draft} />
+          <div style={{ width: "100%" }}>
+            <TagField draft={draft} />
+          </div>
+
+          <div className="field">
+            <span className="label" style={{ fontSize: 12 }}>Inspiration Name</span>
+            <label className="input glass">
+              <span className="sr-only">Inspiration Name</span>
+              <input placeholder="e.g. Portfolio reference..." value={draft.d.title} maxLength={80} onChange={(e) => draft.patch({ title: e.target.value })} />
+              {draft.d.title && (
+                <button type="button" className="clear-btn" aria-label="Clear name" onClick={() => draft.patch({ title: "" })}>
+                  <IconClose size={16} />
+                </button>
+              )}
+            </label>
+          </div>
         </div>
 
-        <div className="field">
-          <span className="label" style={{ fontSize: 12 }}>Inspiration Name</span>
-          <label className="input glass">
-            <span className="sr-only">Inspiration Name</span>
-            <input placeholder="e.g. Portfolio reference..." value={draft.d.title} maxLength={80} onChange={(e) => draft.patch({ title: e.target.value })} />
-            {draft.d.title && (
-              <button type="button" className="clear-btn" aria-label="Clear name" onClick={() => draft.patch({ title: "" })}>
-                <IconClose size={16} />
-              </button>
-            )}
-          </label>
-        </div>
-
-        <div className="fixed-cta" style={{ maxWidth: 402, padding: "0 31px" }}>
+        <div className="onboard-cta">
           <button type="submit" className="btn-primary" disabled={!canSave}>
             {saving ? "Saving…" : "Create Inspiration"} <IconArrowRight />
           </button>
