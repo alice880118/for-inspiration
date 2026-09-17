@@ -78,7 +78,7 @@ function Library() {
         onFilter={() => setFilterOpen(true)} filterActive={hasFilter} below={chips}
       />
 
-      <div className="lib-list" style={{ paddingBottom: "calc(160px + var(--safe-bottom))" }}>
+      <div className="lib-list" style={{ paddingBottom: "var(--nav-clearance)" }}>
         {(color || query.trim()) && (
           <div className="section-head" style={{ paddingTop: 4, paddingBottom: 0 }}>
             <span className="h2">{color ? "Similar Colors" : `Results for “${query.trim()}”`}</span>

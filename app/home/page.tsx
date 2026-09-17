@@ -36,7 +36,6 @@ function Home() {
   }, [params, openAdd, router]);
 
   const open = (id: string) => {
-    router.prefetch(`/inspiration?id=${id}`);
     router.push(`/inspiration?id=${id}`);
   };
   const searching = !!query.trim() || !!color;
@@ -96,7 +95,7 @@ function Home() {
           </div>
         </div>
       ) : searching ? (
-        <div className="page" style={{ paddingTop: 8 }}>
+        <div className="page" style={{ paddingTop: 8, paddingBottom: "var(--nav-clearance)" }}>
           <div className="section">
             <div className="section-head">
               <p className="h1">{color ? "Similar Colors" : `Results for “${query.trim()}”`}</p>
@@ -114,11 +113,11 @@ function Home() {
           </div>
         </div>
       ) : (
-        <div className="page" style={{ paddingTop: 8, display: "flex", flexDirection: "column", gap: 32 }}>
+        <div className="page" style={{ paddingTop: 8, paddingBottom: "var(--nav-clearance)", display: "flex", flexDirection: "column", gap: 32 }}>
           {recent.length > 0 ? (
             <section className="section">
               <h2 className="h1">Recently Added</h2>
-              <div className="h-scroll" key={recent[0]?.id}>{recent.map((i) => <CardM key={i.id} item={i} onOpen={() => open(i.id)} />)}</div>
+              <div className="h-scroll">{recent.map((i) => <CardM key={i.id} item={i} onOpen={() => open(i.id)} />)}</div>
             </section>
           ) : (
             <div className="empty" style={{ padding: "48px 16px" }}>

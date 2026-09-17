@@ -19,19 +19,39 @@ export default function DetailPage() {
 }
 
 /** 04 Inspiration Detail (editable, per 01_Home_Inspiration_detail) */
+function useRecordId() {
+  const fromParams = useSearchParams().get("id") ?? "";
+  if (fromParams) return fromParams;
+  if (typeof window === "undefined") return "";
+  return new URLSearchParams(window.location.search).get("id") ?? "";
+}
+
 function Detail() {
   const router = useRouter();
-  const id = useSearchParams().get("id") ?? "";
+  const id = useRecordId();
   const { refresh, toast, inspirations, upsertInspiration } = useStore();
-  const [rec, setRec] = useState<Inspiration | null | undefined>(() => inspirations.find((i) => i.id === id) ?? undefined);
+  const [rec, setRec] = useState<Inspiration | null | undefined>(() =>
+    id ? inspirations.find((i) => i.id === id) ?? undefined : undefined
+  );
   const draft = useDraft(rec ?? null);
   const [saving, setSaving] = useState(false);
   const [confirmDel, setConfirmDel] = useState(false);
   const [scheduleOpen, setScheduleOpen] = useState(false);
 
   useEffect(() => {
-    getInspiration(id).then(setRec);
-  }, [id]);
+    if (!id) return;
+    const hit = inspirations.find((i) => i.id === id);
+    if (hit) setRec(hit);
+    let cancelled = false;
+    getInspiration(id).then((row) => {
+      if (cancelled) return;
+      if (row) setRec(row);
+      else if (!hit) setRec(null);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [id, inspirations]);
 
   const back = () => (window.history.length > 1 ? router.back() : router.replace("/home"));
 
@@ -50,7 +70,7 @@ function Detail() {
   const status = rec ? effectiveStatus({ ...rec, ...draft.toDraft() } as Inspiration) : "none";
 
   return (
-    <main className="page page-top" style={{ paddingBottom: "calc(48px + var(--safe-bottom))" }}>
+    <main className="page page-top">
       <Backdrop soft />
       <nav className="page-nav" style={{ marginBottom: 24 }}>
         <div className="left">
@@ -61,6 +81,10 @@ function Detail() {
           <IconCalendarAdd />
         </button>
       </nav>
+
+      {rec === undefined && (
+        <div style={{ minHeight: 240 }} aria-busy="true" />
+      )}
 
       {rec && (
         <>

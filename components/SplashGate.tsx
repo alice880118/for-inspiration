@@ -6,7 +6,9 @@ import { useStore } from "@/components/Store";
 import { Backdrop } from "@/components/ui";
 import { PobbiWordmark } from "@/components/Icons";
 
-/** 00-1 Splash on each cold start, then first-time funnel or Home. */
+let booted = false;
+
+/** 00-1 Splash once per JS boot, then first-time funnel or Home. */
 export function SplashGate({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -15,16 +17,24 @@ export function SplashGate({ children }: { children: React.ReactNode }) {
   storeRef.current = store;
   const pathRef = useRef(pathname);
   pathRef.current = pathname;
-  const [phase, setPhase] = useState<"in" | "out" | "done">("in");
+  const routerRef = useRef(router);
+  routerRef.current = router;
+  const [phase, setPhase] = useState<"in" | "out" | "done">(booted ? "done" : "in");
 
   useEffect(() => {
+    if (booted) {
+      setPhase("done");
+      return;
+    }
+    booted = true;
     const started = Date.now();
     let cancelled = false;
+    const r = routerRef.current;
 
     (async () => {
-      router.prefetch("/welcome");
-      router.prefetch("/onboarding");
-      router.prefetch("/home");
+      r.prefetch("/welcome");
+      r.prefetch("/onboarding");
+      r.prefetch("/home");
 
       const params = new URLSearchParams(window.location.search);
       const wantReset = params.get("reset") === "1";
@@ -56,11 +66,10 @@ export function SplashGate({ children }: { children: React.ReactNode }) {
       const path = pathRef.current;
 
       if (!done) {
-        /* First launch: Welcome → Create First. Stay if already in that funnel. */
-        if (path !== "/welcome" && path !== "/onboarding") router.replace("/welcome");
+        if (path !== "/welcome" && path !== "/onboarding") r.replace("/welcome");
       } else {
         const dest = q ? `/home?${q}` : "/home";
-        if (path !== "/home" || q) router.replace(dest);
+        if (path === "/" || path === "/welcome" || path === "/onboarding") r.replace(dest);
       }
 
       setPhase("out");
@@ -72,7 +81,7 @@ export function SplashGate({ children }: { children: React.ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [router]);
+  }, []);
 
   return (
     <>
