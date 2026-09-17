@@ -6,7 +6,7 @@ import { useStore } from "@/components/Store";
 import { Backdrop } from "@/components/ui";
 import { PobbiWordmark } from "@/components/Icons";
 
-/** Full-screen 00-1 Splash on every app launch (layout mount). */
+/** 00-1 Splash on each cold start, then first-time funnel or Home. */
 export function SplashGate({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -22,44 +22,41 @@ export function SplashGate({ children }: { children: React.ReactNode }) {
     let cancelled = false;
 
     (async () => {
-      const params = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : new URLSearchParams();
+      const params = new URLSearchParams(window.location.search);
       const wantReset = params.get("reset") === "1";
       if (wantReset) {
         try {
-          await Promise.race([
-            resetToOnboarding().then(async () => {
-              storeRef.current.closeAdd();
-              await storeRef.current.refresh();
-            }),
-            new Promise<void>((resolve) => window.setTimeout(resolve, 2000)),
-          ]);
+          await resetToOnboarding();
+          storeRef.current.closeAdd();
+          await storeRef.current.refresh();
         } catch {
-          /* still route to welcome */
+          /* still treat as first launch */
         }
       }
 
       let done = false;
-      try {
-        done = wantReset ? false : await Promise.race([
-          getMeta("hasCompletedOnboarding", false),
-          new Promise<boolean>((resolve) => window.setTimeout(() => resolve(false), 1500)),
-        ]);
-      } catch {
-        done = false;
+      if (!wantReset) {
+        try {
+          done = await getMeta("hasCompletedOnboarding", false);
+        } catch {
+          done = false;
+        }
       }
 
       const wait = Math.max(0, 1400 - (Date.now() - started));
       await new Promise<void>((resolve) => window.setTimeout(resolve, wait));
       if (cancelled) return;
 
-      const onRoot = pathRef.current === "/";
-      if (onRoot) {
-        if (wantReset || !done) router.replace("/welcome");
-        else {
-          params.delete("reset");
-          const q = params.toString();
-          router.replace(q ? `/home?${q}` : "/home");
-        }
+      params.delete("reset");
+      const q = params.toString();
+      const path = pathRef.current;
+
+      if (!done) {
+        /* First launch: Welcome → Create First. Stay if already in that funnel. */
+        if (path !== "/welcome" && path !== "/onboarding") router.replace("/welcome");
+      } else {
+        const dest = q ? `/home?${q}` : "/home";
+        if (path !== "/home" || q) router.replace(dest);
       }
 
       setPhase("out");
