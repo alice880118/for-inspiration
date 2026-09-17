@@ -1,5 +1,5 @@
 /* Pobbi service worker — app-shell caching only. User data lives in IndexedDB and is never touched here. */
-const VERSION = "pobbi-v3";
+const VERSION = "pobbi-v4";
 const SHELL = [
   "/",
   "/home",
@@ -14,6 +14,7 @@ const SHELL = [
   "/reading/history",
   "/inspiration",
   "/manifest.webmanifest",
+  "/brand/pobbi-wordmark.svg",
 ];
 
 self.addEventListener("install", (e) => {

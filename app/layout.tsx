@@ -4,6 +4,7 @@ import "./packages/feedback/feedback.css";
 import { StoreProvider } from "@/components/Store";
 import { SwRegister } from "@/components/SwRegister";
 import { AddDrawerHost } from "@/components/AddDrawer";
+import { SplashGate } from "@/components/SplashGate";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://for-inspiration.vercel.app"),
@@ -51,8 +52,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body>
         <StoreProvider>
-          <div className="app">{children}</div>
-          <AddDrawerHost />
+          <SplashGate>
+            <div className="app">{children}</div>
+            <AddDrawerHost />
+          </SplashGate>
         </StoreProvider>
         <SwRegister />
       </body>

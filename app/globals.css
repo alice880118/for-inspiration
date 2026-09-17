@@ -407,9 +407,23 @@ a { color: inherit; text-decoration: none; }
 .soon { font-size: 12px; color: var(--muted); background: var(--gray-3); border-radius: 999px; padding: 4px 10px; font-weight: 600; }
 
 /* Onboarding */
-.splash { position: fixed; inset: 0; display: grid; place-items: center; }
-.splash .mark { animation: pulse 1.6s ease-in-out infinite; }
-@keyframes pulse { 50% { opacity: .55; transform: scale(.985); } }
+.splash { position: fixed; inset: 0; display: grid; place-items: center; z-index: 40; background: var(--white); isolation: isolate; }
+.splash .mark {
+  width: 178px;
+  height: 38px;
+  will-change: transform, opacity;
+  animation: mark-in .7s cubic-bezier(.22,.82,.2,1) both, mark-breathe 2.4s ease-in-out .7s infinite;
+}
+.splash .mark img { width: 178px; height: 38px; }
+@keyframes mark-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes mark-breathe {
+  50% { opacity: 0.72; transform: scale(0.985); }
+}
+.splash-out { animation: splash-fade .28s ease-in forwards; pointer-events: none; }
+@keyframes splash-fade { to { opacity: 0; } }
 .welcome-card { padding: 24px; border-radius: var(--r-2xl); display: flex; flex-direction: column; align-items: center; gap: 24px; text-align: center; }
 .welcome-card h1 { margin: 0; font-size: 31px; font-weight: 600; color: var(--ink); }
 .welcome-card .tag-line { font-size: 16px; font-weight: 600; margin: 0; }

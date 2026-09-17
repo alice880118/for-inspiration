@@ -183,36 +183,17 @@ export const IconBack = ({ size = 18, ...p }: P) => (
   </svg>
 );
 
-export function PobbiWordmark({ width = 112 }: { width?: number }) {
-  const h = Math.round((width * 36) / 112);
+export function PobbiWordmark({ width = 178 }: { width?: number }) {
+  const height = Math.round((width * 37.2188) / 178);
   return (
-    <svg
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src="/brand/pobbi-wordmark.svg"
+      alt="Pobbi"
       width={width}
-      height={h}
-      viewBox="0 0 112 36"
-      role="img"
-      aria-label="Pobbi"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <defs>
-        <linearGradient id="pobbi-wordmark" x1="56" y1="2" x2="56" y2="34" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#111111" />
-          <stop offset="1" stopColor="#969696" />
-        </linearGradient>
-      </defs>
-      <text
-        x="56"
-        y="28"
-        textAnchor="middle"
-        fill="url(#pobbi-wordmark)"
-        fontFamily="Montserrat, 'Noto Sans TC', sans-serif"
-        fontWeight={700}
-        fontSize={32}
-        letterSpacing="-1.28"
-      >
-        Pobbi
-      </text>
-    </svg>
+      height={height}
+      style={{ display: "block", width, height }}
+    />
   );
 }
 
