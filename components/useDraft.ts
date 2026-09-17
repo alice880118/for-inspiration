@@ -6,6 +6,7 @@ import { compressImage, extractPalette, fetchPageMeta, fetchRemoteImage, hostOf,
 
 export interface DraftState extends InspirationDraft {
   webImages: string[];
+  imageBlob?: Blob | null;
 }
 
 const EMPTY: DraftState = {
@@ -24,7 +25,11 @@ const EMPTY: DraftState = {
 };
 
 export function useDraft(initial?: Inspiration | null, prefillUrl = "") {
-  const [d, setD] = useState<DraftState>(() => ({ ...EMPTY, sourceUrl: prefillUrl }));
+  const [d, setD] = useState<DraftState>(() => ({
+    ...EMPTY,
+    sourceUrl: prefillUrl,
+    imageBlob: initial ? undefined : null,
+  }));
   const [fetched, setFetched] = useState(false);
   const [busy, setBusy] = useState<null | "meta" | "image">(null);
   const [error, setError] = useState<string | null>(null);
@@ -58,62 +63,67 @@ export function useDraft(initial?: Inspiration | null, prefillUrl = "") {
   }, []);
 
   const setImage = useCallback(async (blob: Blob, keepPalette = false) => {
-    setBusy("image");
     setError(null);
     try {
       const small = await compressImage(blob);
-      const palette = keepPalette ? null : await extractPalette(small).catch(() => []);
-      setD((prev) => ({ ...prev, imageBlob: small, ...(palette ? { palette } : {}) }));
+      setD((prev) => ({ ...prev, imageBlob: small }));
       setDirty(true);
+      if (!keepPalette) {
+        extractPalette(small)
+          .then((palette) => setD((prev) => ({ ...prev, palette })))
+          .catch(() => {});
+      }
     } catch (e) {
       setError((e as Error).message);
-    } finally {
-      setBusy(null);
     }
   }, []);
 
   const useWebImage = useCallback(
     async (url: string) => {
-      setBusy("image");
       try {
         const blob = await fetchRemoteImage(url);
         await setImage(blob);
       } catch (e) {
         setError((e as Error).message);
-        setBusy(null);
       }
     },
     [setImage]
   );
 
-  /** Paste URL → fetch title / fonts / images → first image → palette. */
+  /** Paste URL → store the link immediately, then fill title / images in the background. */
   const fetchFromUrl = useCallback(async (override?: string) => {
     const url = normalizeUrl(override ?? d.sourceUrl);
     if (!url) return;
-    setBusy("meta");
     setError(null);
+    setD((prev) => ({
+      ...prev,
+      sourceUrl: override ?? (prev.sourceUrl.trim() || url),
+      title: prev.title.trim() ? prev.title : hostOf(url),
+    }));
+    setDirty(true);
+    setFetched(true);
+    setBusy("meta");
     try {
       const meta = await fetchPageMeta(url);
-      setD((prev) => ({
-        ...prev,
-        sourceUrl: override ?? (prev.sourceUrl.trim() || url),
-        title: prev.title.trim() ? prev.title : meta.title || hostOf(url),
-        fonts: prev.fonts.length ? prev.fonts : meta.fonts,
-        webImages: meta.images,
-      }));
-      setDirty(true);
-      setFetched(true);
+      let needsImage = false;
+      setD((prev) => {
+        needsImage = !prev.imageBlob && meta.images.length > 0;
+        return {
+          ...prev,
+          sourceUrl: override ?? (prev.sourceUrl.trim() || url),
+          title: prev.title.trim() && prev.title !== hostOf(url) ? prev.title : meta.title || hostOf(url),
+          fonts: prev.fonts.length ? prev.fonts : meta.fonts,
+          webImages: meta.images,
+        };
+      });
       setBusy(null);
-      if (!d.imageBlob && meta.images[0]) await useWebImage(meta.images[0]);
+      if (needsImage) void useWebImage(meta.images[0]);
       return meta;
     } catch (e) {
-      // graceful fallback: still use the domain as name
-      setD((prev) => ({ ...prev, title: prev.title.trim() ? prev.title : hostOf(url) }));
-      setFetched(true);
-      setError(`${(e as Error).message} — you can still add an image manually.`);
+      setError(`${(e as Error).message} — link is saved locally; add an image if you want.`);
       setBusy(null);
     }
-  }, [d.sourceUrl, d.imageBlob, useWebImage]);
+  }, [d.sourceUrl, useWebImage]);
 
   const reset = useCallback(() => {
     setD({ ...EMPTY });
@@ -124,15 +134,16 @@ export function useDraft(initial?: Inspiration | null, prefillUrl = "") {
 
   const toDraft = useCallback((): InspirationDraft => {
     const { webImages: _w, ...rest } = d;
+    const sourceUrl = rest.sourceUrl.trim() ? normalizeUrl(rest.sourceUrl) : "";
     return {
       ...rest,
-      title: rest.title.trim(),
-      sourceUrl: rest.sourceUrl.trim() ? normalizeUrl(rest.sourceUrl) : "",
+      title: rest.title.trim() || (sourceUrl ? hostOf(sourceUrl) : ""),
+      sourceUrl,
       readingStatus: rest.readingStatus === "completed" ? "completed" : rest.scheduledDate ? "scheduled" : "none",
     };
   }, [d]);
 
-  return { d, patch, fetched, setFetched, busy, error, setError, previewUrl, setImage, useWebImage, fetchFromUrl, reset, toDraft, dirty };
+  return { d, patch, fetched, setFetched, busy, error, setError, previewUrl, setImage, useWebImage, fetchFromUrl, reset, toDraft, dirty, canSave: !!(d.title.trim() || d.sourceUrl.trim()) };
 }
 
 export type Draft = ReturnType<typeof useDraft>;

@@ -22,8 +22,8 @@ export default function DetailPage() {
 function Detail() {
   const router = useRouter();
   const id = useSearchParams().get("id") ?? "";
-  const { refresh, toast } = useStore();
-  const [rec, setRec] = useState<Inspiration | null | undefined>(undefined);
+  const { refresh, toast, inspirations, upsertInspiration } = useStore();
+  const [rec, setRec] = useState<Inspiration | null | undefined>(() => inspirations.find((i) => i.id === id) ?? undefined);
   const draft = useDraft(rec ?? null);
   const [saving, setSaving] = useState(false);
   const [confirmDel, setConfirmDel] = useState(false);
@@ -74,10 +74,12 @@ function Detail() {
             onSave={async () => {
               setSaving(true);
               try {
-                await saveInspiration(draft.toDraft(), rec.id);
-                await refresh();
+                const payload = draft.toDraft();
+                const next = await saveInspiration(payload, rec.id);
+                upsertInspiration(next, payload.imageBlob);
                 toast("Changes saved");
                 back();
+                void refresh();
               } finally {
                 setSaving(false);
               }

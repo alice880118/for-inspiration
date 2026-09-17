@@ -12,6 +12,7 @@ interface StoreValue {
   tags: Tag[];
   tagById: Map<string, Tag>;
   refresh: () => Promise<void>;
+  upsertInspiration: (rec: Inspiration, blob?: Blob | null) => void;
   imageUrl: (imageId: string | null) => string | null;
   toast: (msg: string, action?: { label: string; run: () => void }) => void;
   openAdd: (prefillUrl?: string) => void;
@@ -35,22 +36,26 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const refresh = useCallback(async () => {
     const [ins, tg] = await Promise.all([listInspirations(), listTags()]);
-    // object URLs for thumbnails, re-created only when a record changed
+    setInspirations(ins);
+    setTags(tg);
+    setReady(true);
     const next: Record<string, string> = {};
-    for (const i of ins) {
-      if (!i.imageId) continue;
-      const cached = urlCache.current[i.imageId];
-      if (cached && cached.ver === i.updatedAt) {
-        next[i.imageId] = cached.url;
-        continue;
-      }
-      const blob = await getImage(i.imageId);
-      if (!blob) continue;
-      if (cached) URL.revokeObjectURL(cached.url);
-      const url = URL.createObjectURL(blob);
-      urlCache.current[i.imageId] = { url, ver: i.updatedAt };
-      next[i.imageId] = url;
-    }
+    await Promise.all(
+      ins.map(async (i) => {
+        if (!i.imageId) return;
+        const cached = urlCache.current[i.imageId];
+        if (cached && cached.ver === i.updatedAt) {
+          next[i.imageId] = cached.url;
+          return;
+        }
+        const blob = await getImage(i.imageId);
+        if (!blob) return;
+        if (cached) URL.revokeObjectURL(cached.url);
+        const url = URL.createObjectURL(blob);
+        urlCache.current[i.imageId] = { url, ver: i.updatedAt };
+        next[i.imageId] = url;
+      })
+    );
     for (const k of Object.keys(urlCache.current)) {
       if (!next[k]) {
         URL.revokeObjectURL(urlCache.current[k].url);
@@ -58,9 +63,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
     }
     setUrls(next);
-    setInspirations(ins);
-    setTags(tg);
-    setReady(true);
+  }, []);
+
+  const upsertInspiration = useCallback((rec: Inspiration, blob?: Blob | null) => {
+    setInspirations((prev) => [rec, ...prev.filter((x) => x.id !== rec.id)]);
+    if (rec.imageId && blob) {
+      const cached = urlCache.current[rec.imageId];
+      if (cached) URL.revokeObjectURL(cached.url);
+      const url = URL.createObjectURL(blob);
+      urlCache.current[rec.imageId] = { url, ver: rec.updatedAt };
+      setUrls((u) => ({ ...u, [rec.imageId!]: url }));
+    }
   }, []);
 
   useEffect(() => {
@@ -68,7 +81,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const items = await listInspirations();
       dailyCheck(items).catch(() => {});
     });
-    const onVis = () => document.visibilityState === "visible" && refresh();
+    const onVis = () => {
+      if (document.visibilityState !== "visible") return;
+      listInspirations().then((items) => dailyCheck(items).catch(() => {}));
+    };
     document.addEventListener("visibilitychange", onVis);
     return () => document.removeEventListener("visibilitychange", onVis);
   }, [refresh]);
@@ -92,6 +108,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       tags,
       tagById: new Map(tags.map((t) => [t.id, t])),
       refresh,
+      upsertInspiration,
       imageUrl: (id) => (id ? urls[id] ?? null : null),
       toast,
       addOpen,
@@ -99,7 +116,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       openAdd,
       closeAdd,
     }),
-    [ready, inspirations, tags, refresh, urls, toast, addOpen, addPrefill, openAdd, closeAdd]
+    [ready, inspirations, tags, refresh, upsertInspiration, urls, toast, addOpen, addPrefill, openAdd, closeAdd]
   );
 
   return (

@@ -35,7 +35,10 @@ function Home() {
     }
   }, [params, openAdd, router]);
 
-  const open = (id: string) => router.push(`/inspiration?id=${id}`);
+  const open = (id: string) => {
+    router.prefetch(`/inspiration?id=${id}`);
+    router.push(`/inspiration?id=${id}`);
+  };
   const searching = !!query.trim() || !!color;
 
   const filtered = useMemo(

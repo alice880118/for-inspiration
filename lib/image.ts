@@ -1,5 +1,7 @@
 "use client";
 
+import { getInspiration, saveInspiration } from "./db";
+
 function loadBitmap(blob: Blob): Promise<HTMLImageElement> {
   return new Promise((res, rej) => {
     const url = URL.createObjectURL(blob);
@@ -111,5 +113,43 @@ export function hostOf(url: string) {
     return new URL(normalizeUrl(url)).hostname.replace(/^www\./, "");
   } catch {
     return url;
+  }
+}
+
+/** After a local save: fill title/fonts/image from the URL without blocking the UI. */
+export async function enrichInspirationFromUrl(id: string, url: string): Promise<{ rec: import("./types").Inspiration; blob: Blob | null } | null> {
+  const rec = await getInspiration(id);
+  if (!rec || !url) return null;
+  try {
+    const meta = await fetchPageMeta(url);
+    const title =
+      rec.title.trim() && rec.title.trim() !== hostOf(url) ? rec.title : meta.title || rec.title || hostOf(url);
+    let blob: Blob | null | undefined;
+    if (!rec.imageId && meta.images[0]) {
+      try {
+        blob = await compressImage(await fetchRemoteImage(meta.images[0]));
+      } catch {
+        blob = undefined;
+      }
+    }
+    const next = await saveInspiration(
+      {
+        title,
+        sourceUrl: rec.sourceUrl || url,
+        note: rec.note,
+        tags: rec.tags,
+        keywords: rec.keywords,
+        palette: rec.palette,
+        fonts: rec.fonts.length ? rec.fonts : meta.fonts,
+        readingStatus: rec.readingStatus,
+        scheduledDate: rec.scheduledDate,
+        completedDate: rec.completedDate,
+        imageBlob: blob,
+      },
+      id
+    );
+    return { rec: next, blob: blob ?? null };
+  } catch {
+    return { rec, blob: null };
   }
 }

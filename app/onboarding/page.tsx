@@ -2,6 +2,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { saveInspiration, setMeta } from "@/lib/db";
+import { enrichInspirationFromUrl } from "@/lib/image";
 import { Backdrop } from "@/components/ui";
 import { useStore } from "@/components/Store";
 import { useDraft } from "@/components/useDraft";
@@ -11,19 +12,26 @@ import { AppIcon, IconArrowRight, IconClose } from "@/components/Icons";
 /** 00-3 Create First Inspiration — simplified Add flow. */
 export default function CreateFirst() {
   const router = useRouter();
-  const { refresh, toast } = useStore();
+  const { refresh, toast, upsertInspiration } = useStore();
   const draft = useDraft();
   const [saving, setSaving] = useState(false);
   const [created, setCreated] = useState(0);
-  const canSave = !!draft.d.title.trim() && !draft.busy && !saving;
+  const canSave = draft.canSave && !saving;
 
   const save = async (another: boolean) => {
     if (!canSave) return;
     setSaving(true);
     try {
-      await saveInspiration(draft.toDraft());
+      const payload = draft.toDraft();
+      const rec = await saveInspiration(payload);
       await setMeta("hasCompletedOnboarding", true);
-      await refresh();
+      upsertInspiration(rec, payload.imageBlob ?? null);
+      if (rec.sourceUrl) {
+        void enrichInspirationFromUrl(rec.id, rec.sourceUrl).then((extra) => {
+          if (extra?.rec) upsertInspiration(extra.rec, extra.blob);
+        });
+      }
+      void refresh();
       if (another) {
         draft.reset();
         setCreated((c) => c + 1);

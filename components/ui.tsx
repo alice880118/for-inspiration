@@ -97,7 +97,7 @@ export function Drawer({
       if (!(el instanceof HTMLElement) || !sheet?.contains(el)) return;
       if (!el.matches("input, textarea, select, [contenteditable='true']")) return;
       window.setTimeout(() => {
-        el.scrollIntoView({ block: "center", inline: "nearest" });
+        el.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "instant" });
       }, 50);
     };
     pinToKeyboard();

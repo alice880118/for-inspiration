@@ -193,18 +193,25 @@ export async function saveInspiration(draft: InspirationDraft, id?: string): Pro
   const prev = id ? await d.get("inspirations", id) : undefined;
   const newId = id ?? uid();
   const { imageBlob, ...fields } = draft;
+  let imageId: string | null = prev?.imageId ?? null;
+  const tx = d.transaction(["inspirations", "images"], "readwrite");
+  if (imageBlob) {
+    imageId = newId;
+    await tx.objectStore("images").put({ id: newId, blob: imageBlob });
+  } else if (imageBlob === null) {
+    imageId = null;
+    await tx.objectStore("images").delete(newId);
+    if (prev?.imageId && prev.imageId !== newId) await tx.objectStore("images").delete(prev.imageId);
+  }
   const rec: Inspiration = normalizeInspiration({
     ...(prev ?? {}),
     ...fields,
     id: newId,
-    imageId: imageBlob ? newId : null,
+    imageId,
     createdAt: prev?.createdAt ?? now,
     updatedAt: now,
     completedDate: fields.readingStatus === "completed" ? prev?.completedDate ?? now : null,
   });
-  const tx = d.transaction(["inspirations", "images"], "readwrite");
-  if (imageBlob) await tx.objectStore("images").put({ id: newId, blob: imageBlob });
-  else await tx.objectStore("images").delete(newId);
   await tx.objectStore("inspirations").put(rec);
   await tx.done;
   return rec;

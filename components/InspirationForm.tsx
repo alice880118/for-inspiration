@@ -15,7 +15,7 @@ export function InspirationForm({
   setScheduleOpen?: (v: boolean) => void;
   hideCalendar?: boolean;
 }) {
-  const canSave = !!draft.d.title.trim() && !draft.busy && !saving;
+  const canSave = draft.canSave && !saving;
   const pristine = !draft.dirty;
   return (
     <form

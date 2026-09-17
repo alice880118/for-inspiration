@@ -2,6 +2,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { saveInspiration } from "@/lib/db";
+import { enrichInspirationFromUrl } from "@/lib/image";
 import { useStore } from "./Store";
 import { useDraft } from "./useDraft";
 import { Drawer, useDrawerClose } from "./ui";
@@ -20,7 +21,7 @@ export function AddDrawerHost() {
 function AddBody({ prefill }: { prefill: string }) {
   const draft = useDraft(null, prefill);
   const close = useDrawerClose();
-  const { refresh, toast } = useStore();
+  const { toast, upsertInspiration } = useStore();
   const router = useRouter();
   const [saving, setSaving] = useState(false);
 
@@ -34,10 +35,16 @@ function AddBody({ prefill }: { prefill: string }) {
         onSave={async () => {
           setSaving(true);
           try {
-            const rec = await saveInspiration(draft.toDraft());
-            await refresh();
+            const payload = draft.toDraft();
+            const rec = await saveInspiration(payload);
+            upsertInspiration(rec, payload.imageBlob ?? null);
             close();
             toast("Inspiration saved", { label: "View", run: () => router.push(`/inspiration?id=${rec.id}`) });
+            if (rec.sourceUrl) {
+              void enrichInspirationFromUrl(rec.id, rec.sourceUrl).then((extra) => {
+                if (extra?.rec) upsertInspiration(extra.rec, extra.blob);
+              });
+            }
           } catch (e) {
             toast(`Could not save: ${(e as Error).message}`);
           } finally {

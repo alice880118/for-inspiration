@@ -28,7 +28,8 @@ export interface Inspiration {
 }
 
 export type InspirationDraft = Omit<Inspiration, "id" | "createdAt" | "updatedAt" | "imageId"> & {
-  imageBlob: Blob | null;
+  /** Blob to write; `null` clears; `undefined` leaves the stored image unchanged. */
+  imageBlob?: Blob | null;
 };
 
 /** Overdue is derived, never stored (IA §9) */
