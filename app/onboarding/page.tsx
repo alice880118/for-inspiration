@@ -25,8 +25,9 @@ export default function CreateFirst() {
   const goHome = () => {
     if (leaving) return;
     setLeaving(true);
+    document.documentElement.classList.add("from-onboarding");
     void setMeta("hasCompletedOnboarding", true);
-    window.setTimeout(() => router.replace("/home"), 260);
+    window.setTimeout(() => router.replace("/home"), 460);
   };
 
   const save = async () => {

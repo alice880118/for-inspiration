@@ -1,10 +1,11 @@
 "use client";
+import type { ReactNode } from "react";
 import type { Draft } from "./useDraft";
 import { NameField, NoteField, PurposeField, TagField, ThumbPicker, UrlField, VisualFields } from "./FormParts";
 
 /** Shared Add / Edit layout (IA §20: edit reuses the add layout). */
 export function InspirationForm({
-  draft, onCancel, onSave, saveLabel = "Save", saving = false, scheduleOpen, setScheduleOpen, hideCalendar, stickyActions = false,
+  draft, onCancel, onSave, saveLabel = "Save", saving = false, scheduleOpen, setScheduleOpen, hideCalendar, stickyActions = false, actionTopLeft, actionTopRight,
 }: {
   draft: Draft;
   onCancel: () => void;
@@ -15,6 +16,8 @@ export function InspirationForm({
   setScheduleOpen?: (v: boolean) => void;
   hideCalendar?: boolean;
   stickyActions?: boolean;
+  actionTopLeft?: ReactNode;
+  actionTopRight?: ReactNode;
 }) {
   const canSave = draft.canSave && !saving;
   const pristine = !draft.dirty;
@@ -48,8 +51,16 @@ export function InspirationForm({
       </div>
 
       <div className={`actions${stickyActions ? " detail-actions" : ""}`}>
-        <button type="button" className={`btn-m line${pristine ? " quiet" : ""}`} onClick={onCancel}>Cancel</button>
-        <button type="submit" className="btn-m fill" disabled={!canSave}>{saving ? "Saving…" : saveLabel}</button>
+        {(actionTopLeft || actionTopRight) && (
+          <div className="actions-meta">
+            <span>{actionTopLeft}</span>
+            <span>{actionTopRight}</span>
+          </div>
+        )}
+        <div className="actions-row">
+          <button type="button" className={`btn-m line${pristine ? " quiet" : ""}`} onClick={onCancel}>Cancel</button>
+          <button type="submit" className="btn-m fill" disabled={!canSave}>{saving ? "Saving…" : saveLabel}</button>
+        </div>
       </div>
     </form>
   );

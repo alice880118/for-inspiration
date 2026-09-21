@@ -8,9 +8,9 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 37.981%, rgba(255, 255, 255, 0.85));
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(50px);
+  -webkit-backdrop-filter: blur(50px);
 }
 .fb-popup h3 {
   margin: 0;
@@ -91,24 +91,30 @@
   position: fixed;
   left: 50%;
   transform: translateX(-50%);
-  top: 82px;
-  width: calc(min(100%, var(--app-w)) - 32px);
-  max-width: calc(var(--app-w) - 32px);
+  top: 50px;
+  width: calc(100% - 32px);
+  max-width: 370px;
   z-index: 70;
-  animation: drop 0.4s cubic-bezier(0.22, 0.82, 0.2, 1);
+  animation: fb-drop 0.4s cubic-bezier(0.22, 0.82, 0.2, 1);
+}
+@keyframes fb-drop {
+  from { transform: translateX(-50%) translateY(-16px); opacity: 0; }
+  to { transform: translateX(-50%) translateY(0); opacity: 1; }
 }
 
 .fb-toast {
   position: relative;
   width: 100%;
+  max-width: 100%;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 10px;
   padding: 14px 16px;
   border-radius: 16px;
   background: linear-gradient(180deg, var(--gray), var(--black));
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
   color: #fff;
+  box-sizing: border-box;
 }
 .fb-toast .fb-icon {
   flex: none;
@@ -119,7 +125,7 @@
   color: #fff;
 }
 .fb-toast .fb-copy {
-  flex: 1;
+  flex: 0 1 auto;
   min-width: 0;
   display: flex;
   align-items: center;
@@ -128,12 +134,14 @@
 }
 .fb-toast p {
   margin: 0;
-  flex: 1;
+  flex: 1 1 auto;
   min-width: 0;
   font-size: 13px;
   font-weight: 500;
-  line-height: normal;
+  line-height: 1.4;
   color: #fff;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 .fb-toast .fb-cta {
   flex: none;
@@ -154,23 +162,12 @@
   justify-content: center;
   align-items: flex-start;
   padding: 82px 16px 24px;
-  background: rgba(212, 212, 212, 0.5);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  background: rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   animation: fade 0.28s cubic-bezier(0.22, 0.82, 0.2, 1);
 }
 .fb-delete-scrim .fb-popup {
   width: 100%;
   max-width: calc(var(--app-w) - 32px);
-}
-
-@media (hover: none), (pointer: coarse) {
-  .fb-popup,
-  .fb-delete-scrim {
-    -webkit-backdrop-filter: none;
-    backdrop-filter: none;
-  }
-  .fb-delete-scrim {
-    background: rgba(212, 212, 212, 0.72);
-  }
 }

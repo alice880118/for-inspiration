@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type MouseEvent } from "react";
+import { useRouter } from "next/navigation";
 import { exportBackup, getMeta, importBackup, setMeta } from "@/lib/db";
 import { computeNotices, notificationsEnabled, setNotificationsEnabled } from "@/lib/notify";
 import { useStore } from "@/components/Store";
@@ -11,6 +12,7 @@ import { IconBell, IconChevron } from "@/components/Icons";
 
 /** 06 Settings (Figma 255:988) */
 export default function Settings() {
+  const router = useRouter();
   const { inspirations, tags, tagById, refresh, toast } = useStore();
   const fileRef = useRef<HTMLInputElement>(null);
   const [usage, setUsage] = useState("");
@@ -21,6 +23,14 @@ export default function Settings() {
   const [importMode, setImportMode] = useState<"merge" | "replace">("merge");
   const [confirmReplace, setConfirmReplace] = useState<File | null>(null);
   const [installEvt, setInstallEvt] = useState<(Event & { prompt?: () => void }) | null>(null);
+  const [leaving, setLeaving] = useState(false);
+
+  const goNotifications = (e: MouseEvent) => {
+    e.preventDefault();
+    if (leaving) return;
+    setLeaving(true);
+    window.setTimeout(() => router.push("/notifications"), 400);
+  };
 
   const imageCount = inspirations.filter((i) => i.imageId).length;
   const notices = computeNotices(inspirations, tagById);
@@ -68,13 +78,13 @@ export default function Settings() {
   };
 
   return (
-    <main className="page page-top">
+    <main className={`page page-top page-fade${leaving ? " is-leaving" : ""}`}>
       <Backdrop soft />
       <PageNav
         title="Settings"
         backTo="/home"
         right={
-          <Link href="/notifications" className="icon-btn" aria-label={`Notifications${notices.length ? ` (${notices.length})` : ""}`} style={{ position: "relative" }}>
+          <Link href="/notifications" prefetch className="icon-btn" aria-label={`Notifications${notices.length ? ` (${notices.length})` : ""}`} style={{ position: "relative" }} onClick={goNotifications}>
             <IconBell />
             {notices.length > 0 && <span className="bell-dot" />}
           </Link>

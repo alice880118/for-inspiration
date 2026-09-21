@@ -10,6 +10,7 @@ import { SubClose } from "@/components/FormParts";
 import { CalendarGrid, CalendarHeader, buildMarks, useCalendarState } from "@/components/Calendar";
 import { MarkReadPanel, ReadingHeader, ReadingOptionsPanel, useReadingActions } from "@/components/Reading";
 import { IconKebab } from "@/components/Icons";
+import { InertialY } from "@/components/InertialScroll";
 
 /** 03-1 Reading Queue (Figma 244:2380) */
 export default function ReadingQueue() {
@@ -57,32 +58,34 @@ export default function ReadingQueue() {
   const dayLabel = new Date(day).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 
   return (
-    <main className="page page-top">
+    <main className="scroll-page">
       <Backdrop soft />
-      <ReadingHeader title="Reading Queue" active="queue" query={query} onQuery={setQuery} />
+      <ReadingHeader title="Reading Queue" active="queue" query={query} onQuery={setQuery} fixed />
 
-      <section style={{ display: "flex", flexDirection: "column", gap: 12, margin: "0 calc(-1 * var(--gutter))" }}>
-        <CalendarHeader cal={cal} />
-        <div style={{ padding: "0 var(--gutter)" }}>
-          <CalendarGrid cal={cal} selected={day} marks={marks} onSelect={(ms) => setDay(startOfDay(ms))} />
-        </div>
-      </section>
+      <InertialY className="page">
+        <section style={{ display: "flex", flexDirection: "column", gap: 12, margin: "0 calc(-1 * var(--gutter))" }}>
+          <CalendarHeader cal={cal} />
+          <div style={{ padding: "0 var(--gutter)" }}>
+            <CalendarGrid cal={cal} selected={day} marks={marks} onSelect={(ms) => setDay(startOfDay(ms))} />
+          </div>
+        </section>
 
-      <section style={{ marginTop: 24, display: "flex", flexDirection: "column", gap: 12 }}>
-        <h2 className="h2">{dayLabel} · {pendingOnDay.length} Pending</h2>
-        {pendingOnDay.map(row)}
-        {pendingOnDay.length === 0 && (
-          <p className="body13 muted" style={{ margin: 0 }}>
-            Nothing scheduled for this day. Tick “For Case study” on an inspiration to add it to your queue.
-          </p>
-        )}
-        {overdue.length > 0 && (
-          <>
-            <h2 className="h2" style={{ marginTop: 12, color: "var(--danger)" }}>Overdue · {overdue.length}</h2>
-            {overdue.map(row)}
-          </>
-        )}
-      </section>
+        <section style={{ marginTop: 24, display: "flex", flexDirection: "column", gap: 12 }}>
+          <h2 className="h2">{dayLabel} · {pendingOnDay.length} Pending</h2>
+          {pendingOnDay.map(row)}
+          {pendingOnDay.length === 0 && (
+            <p className="body13 muted" style={{ margin: 0 }}>
+              Nothing scheduled for this day. Tick “For Case study” on an inspiration to add it to your queue.
+            </p>
+          )}
+          {overdue.length > 0 && (
+            <>
+              <h2 className="h2" style={{ marginTop: 12, color: "var(--danger)" }}>Overdue · {overdue.length}</h2>
+              {overdue.map(row)}
+            </>
+          )}
+        </section>
+      </InertialY>
 
       <Drawer open={!!marking} onClose={() => setMarking(null)} label="Mark as read">
         <SubClose>

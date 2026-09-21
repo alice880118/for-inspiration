@@ -46,7 +46,7 @@ export function ChipListPanel({
               <span key={f} className="chip-x">
                 {f}
                 <button type="button" aria-label={`Remove ${f}`} onClick={() => setList((l) => l.filter((x) => x !== f))}>
-                  <IconClose size={14} />
+                  <IconClose size={12} />
                 </button>
               </span>
             ))}

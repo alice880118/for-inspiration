@@ -15,9 +15,9 @@ export default function Welcome() {
   }, [router]);
 
   return (
-    <main className={`center-stack onboarding-transition${leaving ? " is-leaving" : ""}`} style={{ padding: "0 16px 120px" }}>
+    <main className={`welcome-page onboarding-transition${leaving ? " is-leaving" : ""}`}>
       <Backdrop />
-      <section className="welcome-card" style={{ width: "100%" }}>
+      <section className="welcome-card">
         <AppIcon width={60} />
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -36,7 +36,7 @@ export default function Welcome() {
           <span>Color</span>
         </div>
       </section>
-      <div className="fixed-cta">
+      <div className="welcome-cta">
         <Link
           href="/onboarding"
           prefetch
@@ -45,7 +45,8 @@ export default function Welcome() {
             e.preventDefault();
             if (leaving) return;
             setLeaving(true);
-            window.setTimeout(() => router.push("/onboarding"), 260);
+            document.documentElement.classList.add("from-onboarding");
+            window.setTimeout(() => router.push("/onboarding"), 460);
           }}
         >
           Next <IconArrowRight />

@@ -54,16 +54,16 @@ function Library() {
       {f.tags.map((id) => tagById.get(id) && (
         <span key={id} className="fchip">
           {tagById.get(id)!.name}
-          <button aria-label={`Remove ${tagById.get(id)!.name} filter`} onClick={() => toggleTag(id)}><IconClose /></button>
+          <button aria-label={`Remove ${tagById.get(id)!.name} filter`} onClick={() => toggleTag(id)}><IconClose size={18} /></button>
         </span>
       ))}
       {f.caseStudy && (
-        <span className="fchip">Case study<button aria-label="Remove case study filter" onClick={() => setF((p) => ({ ...p, caseStudy: false }))}><IconClose /></button></span>
+        <span className="fchip">Case study<button aria-label="Remove case study filter" onClick={() => setF((p) => ({ ...p, caseStudy: false }))}><IconClose size={18} /></button></span>
       )}
       {f.onDate != null && (
         <span className="fchip">
           {new Date(f.onDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-          <button aria-label="Remove date filter" onClick={() => setF((p) => ({ ...p, onDate: null }))}><IconClose /></button>
+          <button aria-label="Remove date filter" onClick={() => setF((p) => ({ ...p, onDate: null }))}><IconClose size={18} /></button>
         </span>
       )}
     </div>
@@ -141,7 +141,7 @@ function FilterPanel({
             return (
               <button key={t.id} type="button" className={`chip-x${on ? "" : " off"}`} aria-pressed={on} onClick={() => toggle(t.id)}>
                 {t.name}
-                {on && <IconClose size={14} />}
+                {on && <IconClose size={12} />}
               </button>
             );
           })}

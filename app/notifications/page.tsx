@@ -15,17 +15,25 @@ export default function NotificationCenter() {
   const { inspirations, tagById, refresh, toast } = useStore();
   const [q, setQ] = useState<string | null>(null);
   const [confirmMove, setConfirmMove] = useState(false);
+  const [leaving, setLeaving] = useState(false);
   const notices = computeNotices(inspirations, tagById).filter(
     (n) => !q || `${n.title} ${n.body}`.toLowerCase().includes(q.toLowerCase())
   );
   const overdue = inspirations.filter((i) => effectiveStatus(i) === "overdue");
   const weekend = thisWeekend();
 
+  const goBack = () => {
+    if (leaving) return;
+    setLeaving(true);
+    window.setTimeout(() => router.push("/settings"), 400);
+  };
+
   return (
-    <main className="page page-top">
+    <main className={`page page-top page-fade${leaving ? " is-leaving" : ""}`}>
       <Backdrop soft />
       <PageNav
         title="Notification Center"
+        onBack={goBack}
         right={
           <button className="icon-btn" aria-label={q === null ? "Search notifications" : "Close search"} onClick={() => setQ(q === null ? "" : null)}>
             {q === null ? <IconSearch /> : <IconClose />}

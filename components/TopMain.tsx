@@ -1,13 +1,14 @@
 "use client";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState, type PointerEvent, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import type { Inspiration } from "@/lib/types";
 import { useStore } from "./Store";
 import { Drawer } from "./ui";
 import { SubClose } from "./FormParts";
 import { ColorPickerPanel } from "./ColorPicker";
 import { IconClose, IconDots9, IconSearch, IconSort } from "./Icons";
+import { useInertialScroll } from "./InertialScroll";
 
 export type SortKey = "recent" | "oldest" | "az";
 export const SORT_LABEL: Record<SortKey, string> = { recent: "Recently Added", oldest: "Oldest", az: "A–Z" };
@@ -18,7 +19,7 @@ export const SORT_LABEL: Record<SortKey, string> = { recent: "Recently Added", o
  */
 export function TopMain({
   query, setQuery, color, setColor, items,
-  selected, onChip, onAll, onFilter, filterActive = false, below,
+  selected, onChip, onAll, onFilter, filterActive = false, below, fixed = false,
 }: {
   query: string; setQuery: (v: string) => void;
   color: string | null; setColor: (v: string | null) => void;
@@ -29,6 +30,7 @@ export function TopMain({
   onFilter?: () => void;
   filterActive?: boolean;
   below?: ReactNode;
+  fixed?: boolean;
 }) {
   const { tags } = useStore();
   const router = useRouter();
@@ -42,7 +44,7 @@ export function TopMain({
   }, [router]);
 
   return (
-    <div className="top-main">
+    <div className={`top-main${fixed ? " fixed" : ""}`}>
       <div className="top-nav">
         <label className="search">
           <IconSearch />
@@ -133,49 +135,14 @@ export function TopMain({
 }
 
 function ChipRow({ children }: { children: ReactNode }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const drag = useRef<{ x: number; sl: number; moved: boolean; id: number } | null>(null);
-  const skipClick = useRef(false);
-
-  const onDown = (e: PointerEvent<HTMLDivElement>) => {
-    const el = ref.current;
-    if (!el) return;
-    drag.current = { x: e.clientX, sl: el.scrollLeft, moved: false, id: e.pointerId };
-  };
-  const onMove = (e: PointerEvent<HTMLDivElement>) => {
-    const d = drag.current;
-    const el = ref.current;
-    if (!d || d.id !== e.pointerId || !el) return;
-    const dx = d.x - e.clientX;
-    if (!d.moved && Math.abs(dx) < 6) return;
-    if (!d.moved) {
-      d.moved = true;
-      skipClick.current = true;
-      el.setPointerCapture(e.pointerId);
-    }
-    el.scrollLeft = d.sl + dx;
-  };
-  const onUp = () => {
-    drag.current = null;
-    window.setTimeout(() => { skipClick.current = false; }, 0);
-  };
+  const ref = useInertialScroll<HTMLDivElement>("x");
 
   return (
     <div
       ref={ref}
-      className="chip-row"
+      className="chip-row inertia-scroll"
       role="tablist"
       aria-label="Filter by category"
-      onPointerDown={onDown}
-      onPointerMove={onMove}
-      onPointerUp={onUp}
-      onPointerCancel={onUp}
-      onLostPointerCapture={onUp}
-      onClickCapture={(e) => {
-        if (!skipClick.current) return;
-        e.preventDefault();
-        e.stopPropagation();
-      }}
     >
       {children}
     </div>

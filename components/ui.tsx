@@ -7,7 +7,7 @@ import type { Inspiration, Tag } from "@/lib/types";
 import { normalizeUrl } from "@/lib/image";
 import { useStore } from "./Store";
 import {
-  IconArrowUpRight, IconCalendarAdd, IconCalendarFilled, IconClose, IconColorAdd, IconHome, IconImage, IconLibrary, IconMore, IconPlus,
+  IconArrowUpRight, IconCalendarAdd, IconClose, IconColorAdd, IconDateSelect, IconHome, IconImage, IconLibrary, IconMore, IconPlus,
 } from "./Icons";
 
 export function Backdrop({ soft = false }: { soft?: boolean }) {
@@ -48,7 +48,7 @@ export function BottomNav() {
             aria-label="Reading queue"
             aria-current={path.startsWith("/reading") ? "page" : undefined}
           >
-            {path.startsWith("/reading") ? <IconCalendarFilled /> : <IconCalendarAdd />}
+            {path.startsWith("/reading") ? <IconDateSelect /> : <IconCalendarAdd />}
           </Link>
         </div>
         <button className="fab" aria-label="Add inspiration" onClick={() => openAdd()}>

@@ -75,7 +75,7 @@ export function SplashGate({ children }: { children: React.ReactNode }) {
       setPhase("out");
       window.setTimeout(() => {
         if (!cancelled) setPhase("done");
-      }, 280);
+      }, 400);
     })();
 
     return () => {

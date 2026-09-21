@@ -95,6 +95,17 @@ function Detail() {
             setScheduleOpen={setScheduleOpen}
             hideCalendar
             stickyActions
+            actionTopLeft={
+              <button type="button" className="btn-link detail-delete" onClick={() => setConfirmDel(true)}>Delete</button>
+            }
+            actionTopRight={
+              rec && (
+                <span className="muted">
+                  Added {new Date(rec.createdAt).toLocaleDateString("en-US", { year: "numeric", month: "2-digit", day: "2-digit" })}
+                  {status === "overdue" && <b style={{ color: "var(--danger)" }}> · Overdue</b>}
+                </span>
+              )
+            }
             onCancel={back}
             onSave={async () => {
               setSaving(true);
@@ -111,24 +122,11 @@ function Detail() {
             }}
           />
 
-          <div className="detail-meta">
-            <span className="muted">
-              Added {new Date(rec.createdAt).toLocaleDateString("en-US", { year: "numeric", month: "2-digit", day: "2-digit" })}
-              {status === "overdue" && <b style={{ color: "var(--danger)" }}> · Overdue</b>}
-            </span>
-            <span style={{ display: "flex", gap: 16 }}>
-              {(status === "scheduled" || status === "overdue") && (
-                <button className="btn-link" style={{ color: "var(--black)" }} onClick={() => draft.patch({ readingStatus: "completed" })}>Mark as Read</button>
-              )}
-              {draft.d.sourceUrl && (
-                <button className="btn-link" onClick={async () => {
-                  await navigator.clipboard?.writeText(draft.d.sourceUrl).catch(() => {});
-                  toast("Link copied");
-                }}>Copy Link</button>
-              )}
-              <button className="btn-link" style={{ color: "var(--danger)" }} onClick={() => setConfirmDel(true)}>Delete</button>
-            </span>
-          </div>
+          {(status === "scheduled" || status === "overdue") && (
+            <div className="detail-meta">
+              <button className="btn-link" style={{ color: "var(--black)" }} onClick={() => draft.patch({ readingStatus: "completed" })}>Mark as Read</button>
+            </div>
+          )}
         </>
       )}
 

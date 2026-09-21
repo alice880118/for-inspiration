@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import type { Tag } from "@/lib/types";
+import { normalizeUrl } from "@/lib/image";
 import { useStore } from "./Store";
 import type { Draft } from "./useDraft";
 import { Drawer, ImageLightbox, Palette, TagPill, useDrawerClose } from "./ui";
@@ -8,7 +9,7 @@ import { ChipListPanel, CategoryPanel } from "./Panels";
 import { ColorPickerPanel } from "./ColorPicker";
 import { DatePickerPanel, buildMarks } from "./Calendar";
 import {
-  IconCalendarAdd, IconCheckbox, IconClose, IconImageSparkle, IconImageUpload, IconLink, IconMore, IconPencil, IconPlus, IconUpload,
+  IconArrowUpRight, IconCalendarAdd, IconCheckbox, IconClose, IconImageSparkle, IconImageUpload, IconLink, IconMore, IconPencil, IconPlus, IconUpload,
 } from "./Icons";
 
 export { TAG_COLORS } from "./Panels";
@@ -76,20 +77,32 @@ export function UrlField({ draft, glass = false, label = "URL", placeholder = "P
             }}
           />
           {has && (
+            <button
+              type="button"
+              className="url-open"
+              aria-label="Open URL"
+              onClick={() => window.open(normalizeUrl(d.sourceUrl), "_blank", "noopener,noreferrer")}
+            >
+              <IconArrowUpRight size={20} />
+            </button>
+          )}
+          {has && (
             <button type="button" className="clear-btn" aria-label="Clear URL" onClick={() => { patch({ sourceUrl: "" }); setFetched(false); }}>
               <IconClose size={16} />
             </button>
           )}
         </label>
-        <button
-          type="button"
-          className={`btn-icon-fill${fetched ? " done" : ""}`}
-          aria-label="Paste URL from clipboard"
-          disabled={busy === "meta"}
-          onClick={pasteClipboard}
-        >
-          {busy === "meta" ? <Spinner /> : <IconLink />}
-        </button>
+        <span className="url-actions">
+          <button
+            type="button"
+            className={`btn-icon-fill${fetched ? " done" : ""}`}
+            aria-label="Paste URL from clipboard"
+            disabled={busy === "meta"}
+            onClick={pasteClipboard}
+          >
+            {busy === "meta" ? <Spinner /> : <IconLink />}
+          </button>
+        </span>
       </div>
     </div>
   );
@@ -350,7 +363,6 @@ export function TagField({ draft }: { draft: Draft }) {
           <IconPlus size={20} strokeWidth={1} />
         </button>
       </div>
-      {editing && <p style={{ margin: 0, fontSize: 12, color: "var(--muted)" }}>Tap a category to rename, recolor or delete it.</p>}
       <Drawer open={!!panel} onClose={() => setPanel(null)} label={panel?.tag ? "Edit Classify Tag" : "Add Classify Tag"} sub>
         <SubClose>
           {(close) => panel && (

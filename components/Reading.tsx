@@ -13,12 +13,13 @@ import { FlatItem, statusMeta } from "./FlatItem";
 import { IconCalendarAdd, IconClose, IconImage, IconSearch } from "./Icons";
 
 export function ReadingHeader({
-  title, active, query, onQuery,
+  title, active, query, onQuery, fixed = false,
 }: {
   title: string;
   active: "queue" | "history";
   query: string;
   onQuery: (q: string) => void;
+  fixed?: boolean;
 }) {
   const [searching, setSearching] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -28,7 +29,7 @@ export function ReadingHeader({
   }, [searching]);
 
   return (
-    <>
+    <div className={`reading-top${fixed ? " fixed" : ""}`}>
       <nav className="page-nav">
         {searching ? (
           <label className="search" style={{ flex: 1, minWidth: 0 }}>
@@ -71,7 +72,7 @@ export function ReadingHeader({
         <Link href="/reading" role="tab" aria-selected={active === "queue"} className={active === "queue" ? "on" : ""} replace>Reading Queue</Link>
         <Link href="/reading/history" role="tab" aria-selected={active === "history"} className={active === "history" ? "on" : ""} replace>Read History</Link>
       </div>
-    </>
+    </div>
   );
 }
 

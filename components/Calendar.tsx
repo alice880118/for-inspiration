@@ -162,8 +162,11 @@ export function DatePickerPanel({
         <CalendarGrid cal={cal} selected={day} marks={marks} onSelect={setDay} />
         {withTime && (
           <div className="time-row">
-            <span className="time-controls">
+            <label className="time-field">
+              <span className="time-val">{String(((Number(time.slice(0, 2)) + 11) % 12) + 1).padStart(2, "0")}</span>
+              <span className="time-chevron" aria-hidden><IconChevron size={16} /></span>
               <select
+                className="time-native"
                 aria-label="Hour"
                 value={String(((Number(time.slice(0, 2)) + 11) % 12) + 1)}
                 onChange={(e) => {
@@ -172,16 +175,30 @@ export function DatePickerPanel({
                   setTime(`${String(next).padStart(2, "0")}:${time.slice(3, 5)}`);
                 }}
               >
-                {Array.from({ length: 12 }, (_, i) => i + 1).map((hour) => <option key={hour}>{hour}</option>)}
+                {Array.from({ length: 12 }, (_, i) => i + 1).map((hour) => (
+                  <option key={hour} value={hour}>{String(hour).padStart(2, "0")}</option>
+                ))}
               </select>
+            </label>
+            <label className="time-field">
+              <span className="time-val">{time.slice(3, 5)}</span>
+              <span className="time-chevron" aria-hidden><IconChevron size={16} /></span>
               <select
+                className="time-native"
                 aria-label="Minute"
                 value={time.slice(3, 5)}
                 onChange={(e) => setTime(`${time.slice(0, 2)}:${e.target.value}`)}
               >
-                {Array.from({ length: 60 }, (_, i) => String(i).padStart(2, "0")).map((minute) => <option key={minute}>{minute}</option>)}
+                {Array.from({ length: 60 }, (_, i) => String(i).padStart(2, "0")).map((minute) => (
+                  <option key={minute} value={minute}>{minute}</option>
+                ))}
               </select>
+            </label>
+            <label className="time-field">
+              <span className="time-val">{Number(time.slice(0, 2)) >= 12 ? "PM" : "AM"}</span>
+              <span className="time-chevron" aria-hidden><IconChevron size={16} /></span>
               <select
+                className="time-native"
                 aria-label="AM or PM"
                 value={Number(time.slice(0, 2)) >= 12 ? "PM" : "AM"}
                 onChange={(e) => {
@@ -192,7 +209,7 @@ export function DatePickerPanel({
                 <option>AM</option>
                 <option>PM</option>
               </select>
-            </span>
+            </label>
           </div>
         )}
       </div>

@@ -11,7 +11,7 @@ export const metadata: Metadata = {
   title: "Pobbi",
   description: "Your AI-powered inspiration assistant — collect, organize and revisit references.",
   applicationName: "Pobbi",
-  appleWebApp: { capable: true, title: "Pobbi", statusBarStyle: "default" },
+  appleWebApp: { capable: true, title: "Pobbi", statusBarStyle: "black-translucent" },
   icons: {
     icon: [
       { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
@@ -37,7 +37,7 @@ export const viewport: Viewport = {
   maximumScale: 1,
   userScalable: false,
   viewportFit: "cover",
-  themeColor: "#ffffff",
+  themeColor: "#f3f7fb",
   interactiveWidget: "resizes-content",
 };
 
@@ -50,7 +50,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {/* eslint-disable-next-line @next/next/no-page-custom-font */}
         <link
           rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600&family=Montserrat:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap"
         />
       </head>
       <body>
