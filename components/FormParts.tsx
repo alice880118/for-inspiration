@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { Tag } from "@/lib/types";
 import { normalizeUrl } from "@/lib/image";
 import { useStore } from "./Store";
@@ -342,9 +342,29 @@ export function SubClose({ children }: { children: (close: () => void) => React.
 export function TagField({ draft }: { draft: Draft }) {
   const { d, patch } = draft;
   const { tags } = useStore();
+  const wrapRef = useRef<HTMLDivElement>(null);
   const [editing, setEditing] = useState(false);
+  const [open, setOpen] = useState(false);
+  const [overflow, setOverflow] = useState(false);
   const [panel, setPanel] = useState<null | { tag: Tag | null }>(null);
+  const expanded = open || editing;
   const toggle = (id: string) => patch({ tags: d.tags.includes(id) ? d.tags.filter((t) => t !== id) : [...d.tags, id] });
+
+  useLayoutEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const measure = () => {
+      const styles = window.getComputedStyle(el);
+      const row = 34;
+      const gap = parseFloat(styles.rowGap || styles.gap) || 8;
+      const cap = row * 2 + gap;
+      setOverflow(el.scrollHeight > cap + 1);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [tags, expanded]);
 
   return (
     <div className="field">
@@ -354,7 +374,10 @@ export function TagField({ draft }: { draft: Draft }) {
           <IconPencil />
         </button>
       </div>
-      <div className="tag-wrap">
+      <div
+        ref={wrapRef}
+        className={`tag-wrap${expanded ? "" : " is-collapsed"}`}
+      >
         {tags.map((t) => (
           <TagPill key={t.id} tag={t} on={d.tags.includes(t.id)} editing={editing}
             onClick={() => (editing ? setPanel({ tag: t }) : toggle(t.id))} />
@@ -363,6 +386,16 @@ export function TagField({ draft }: { draft: Draft }) {
           <IconPlus size={20} strokeWidth={1} />
         </button>
       </div>
+      {overflow && !editing && (
+        <button
+          type="button"
+          className="tag-more"
+          aria-expanded={open}
+          onClick={() => setOpen((v) => !v)}
+        >
+          {open ? "Show less" : "More"}
+        </button>
+      )}
       <Drawer open={!!panel} onClose={() => setPanel(null)} label={panel?.tag ? "Edit Classify Tag" : "Add Classify Tag"} sub>
         <SubClose>
           {(close) => panel && (

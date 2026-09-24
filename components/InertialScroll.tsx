@@ -15,9 +15,12 @@ type DragState = {
   moved: boolean;
 };
 
-const FRICTION = 0.955;
-const MIN_VELOCITY = 0.035;
-const RELEASE_BOOST = 1.35;
+const FRICTION_X = 0.92;
+const FRICTION_Y = 0.94;
+const MIN_VELOCITY = 0.04;
+const MAX_VELOCITY_X = 1.15;
+const MAX_VELOCITY_Y = 1.6;
+const SAMPLE_WINDOW = 80;
 const LOCK_THRESHOLD = 8;
 const AXIS_RATIO = 1.12;
 
@@ -34,8 +37,25 @@ export function useInertialScroll<T extends HTMLElement>(axis: Axis = "x") {
     if (!el) return;
 
     const drag: { current: DragState | null } = { current: null };
+    const samples: { t: number; s: number }[] = [];
     let raf: number | null = null;
     let skipClick = false;
+    const friction = axis === "x" ? FRICTION_X : FRICTION_Y;
+    const maxVelocity = axis === "x" ? MAX_VELOCITY_X : MAX_VELOCITY_Y;
+
+    const remember = (scroll: number, time = performance.now()) => {
+      samples.push({ t: time, s: scroll });
+      while (samples.length > 1 && time - samples[0].t > SAMPLE_WINDOW) samples.shift();
+    };
+
+    const sampledVelocity = () => {
+      if (samples.length < 2) return 0;
+      const a = samples[0];
+      const b = samples[samples.length - 1];
+      const dt = Math.max(16, b.t - a.t);
+      const raw = (b.s - a.s) / dt;
+      return Math.max(-maxVelocity, Math.min(maxVelocity, raw));
+    };
 
     const getScroll = () => (axis === "x" ? el.scrollLeft : el.scrollTop);
     const setScroll = (value: number) => {
@@ -76,7 +96,8 @@ export function useInertialScroll<T extends HTMLElement>(axis: Axis = "x") {
     };
 
     const startMomentum = (initialVelocity: number) => {
-      let velocity = initialVelocity * RELEASE_BOOST;
+      let velocity = Math.max(-maxVelocity, Math.min(maxVelocity, initialVelocity));
+      if (Math.abs(velocity) <= MIN_VELOCITY) return;
       let last = performance.now();
       el.classList.add("is-gliding");
 
@@ -93,7 +114,7 @@ export function useInertialScroll<T extends HTMLElement>(axis: Axis = "x") {
           velocity = 0;
         }
         setScroll(next);
-        velocity *= Math.pow(FRICTION, dt / 16);
+        velocity *= Math.pow(friction, dt / 16);
 
         if (Math.abs(velocity) > MIN_VELOCITY) {
           raf = window.requestAnimationFrame(step);
@@ -124,6 +145,8 @@ export function useInertialScroll<T extends HTMLElement>(axis: Axis = "x") {
       if ((e.pointerType === "mouse" && e.button !== 0) || isEditable(e.target) || getMax() <= 0) return;
       cancelMomentum();
       const scroll = getScroll();
+      samples.length = 0;
+      remember(scroll);
       drag.current = {
         pointerId: e.pointerId,
         startX: e.clientX,
@@ -167,6 +190,7 @@ export function useInertialScroll<T extends HTMLElement>(axis: Axis = "x") {
       d.velocity = (next - d.lastScroll) / dt;
       d.lastScroll = next;
       d.lastTime = now;
+      remember(next, now);
     };
 
     const finish = (e: PointerEvent) => {
@@ -174,7 +198,8 @@ export function useInertialScroll<T extends HTMLElement>(axis: Axis = "x") {
       if (!d || d.pointerId !== e.pointerId) return;
       drag.current = null;
       el.classList.remove("is-dragging");
-      if (d.locked === axis && d.moved && Math.abs(d.velocity) > MIN_VELOCITY) startMomentum(d.velocity);
+      const fling = sampledVelocity();
+      if (d.locked === axis && d.moved && Math.abs(fling) > MIN_VELOCITY) startMomentum(fling);
       else if (d.locked === axis && d.moved && axis === "x") snapToNearest();
       window.setTimeout(() => {
         skipClick = false;

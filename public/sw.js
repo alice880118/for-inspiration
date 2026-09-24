@@ -1,5 +1,5 @@
 /* Pobbi service worker — app-shell caching only. User data lives in IndexedDB and is never touched here. */
-const VERSION = "pobbi-v4";
+const VERSION = "pobbi-v5";
 const SHELL = [
   "/",
   "/home",

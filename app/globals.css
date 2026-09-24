@@ -40,7 +40,17 @@
 
 *, *::before, *::after { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; height: 100%; width: 100%; overflow-x: hidden; }
-html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  background-color: #e1f3f6;
+  background-image:
+    radial-gradient(120% 70% at 50% -18%, rgba(109, 163, 250, 0.55), transparent 58%),
+    radial-gradient(90% 55% at 8% -12%, rgba(218, 255, 240, 0.9), transparent 52%);
+  background-repeat: no-repeat;
+  min-height: 100%;
+  min-height: -webkit-fill-available;
+}
 * {
   scrollbar-width: none;
   -ms-overflow-style: none;
@@ -53,11 +63,12 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 body {
   font-family: var(--font);
   color: var(--black);
-  background: #f3f7fb;
+  background: transparent;
   -webkit-font-smoothing: antialiased;
   -webkit-tap-highlight-color: transparent;
   overscroll-behavior-y: none;
   min-height: 100dvh;
+  min-height: -webkit-fill-available;
   touch-action: manipulation;
   -webkit-overflow-scrolling: touch;
 }
@@ -102,7 +113,7 @@ a { color: inherit; text-decoration: none; }
 
 /* Figma 5-ellipse wash: pre-softened radial fills (no live Gaussian blur). Motion is transform-only. */
 .backdrop {
-  position: fixed; top: 0; bottom: 0; left: var(--app-center-x); width: 100%; max-width: var(--app-w); margin: 0; z-index: -2;
+  position: fixed; top: calc(-1 * env(safe-area-inset-top, 0px)); bottom: 0; left: var(--app-center-x); width: 100%; max-width: var(--app-w); margin: 0; z-index: -2;
   overflow: hidden; pointer-events: none; transform: translateX(-50%) translateZ(0); contain: paint;
 }
 .backdrop i {
@@ -273,7 +284,17 @@ a { color: inherit; text-decoration: none; }
 .tag.editing { border-style: dashed; }
 .tag-add { width: 34px; height: 34px; border-radius: var(--r-sm); border: 1px dashed var(--black); display: grid; place-items: center; background: rgba(255,255,255,.05); transition: transform var(--motion-fast), background-color .2s ease; }
 .tag-add:active { transform: scale(.94); }
-.tag-wrap { display: flex; flex-wrap: wrap; gap: 8px; }
+.tag-wrap { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.tag-wrap.is-collapsed {
+  max-height: calc(34px * 2 + 8px);
+  overflow: hidden;
+}
+.tag-more {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--body);
+  align-self: flex-start;
+}
 
 .font-tag { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 14px; background: rgba(255, 255, 255, 0.4); color: var(--gray); font-size: 13px; font-weight: 500; transition: background .22s ease, color .22s ease, transform var(--motion-fast); }
 .font-tag:active { transform: scale(.97); }
@@ -599,7 +620,19 @@ body:has(.scroll-page),
 .soon { font-size: 12px; color: var(--muted); background: var(--gray-3); border-radius: 999px; padding: 4px 10px; font-weight: 600; }
 
 /* Onboarding */
-.splash { position: fixed; inset: 0; display: grid; place-items: center; z-index: 40; background: #f3f7fb; isolation: isolate; }
+.splash {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  min-height: 100dvh;
+  min-height: -webkit-fill-available;
+  display: grid;
+  place-items: center;
+  z-index: 40;
+  background: #e1f3f6;
+  isolation: isolate;
+}
 .splash .mark {
   width: 178px;
   height: 38px;
@@ -630,6 +663,7 @@ body:has(.scroll-page),
 .splash .backdrop {
   position: absolute;
   inset: 0;
+  top: calc(-1 * env(safe-area-inset-top, 0px) - 32px);
   left: 0;
   width: auto;
   max-width: none;

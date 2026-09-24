@@ -12,6 +12,11 @@ export const metadata: Metadata = {
   description: "Your AI-powered inspiration assistant — collect, organize and revisit references.",
   applicationName: "Pobbi",
   appleWebApp: { capable: true, title: "Pobbi", statusBarStyle: "black-translucent" },
+  other: {
+    "mobile-web-app-capable": "yes",
+    "apple-mobile-web-app-capable": "yes",
+    "apple-mobile-web-app-status-bar-style": "black-translucent",
+  },
   icons: {
     icon: [
       { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
@@ -37,7 +42,7 @@ export const viewport: Viewport = {
   maximumScale: 1,
   userScalable: false,
   viewportFit: "cover",
-  themeColor: "#f3f7fb",
+  themeColor: "#e1f3f6",
   interactiveWidget: "resizes-content",
 };
 
