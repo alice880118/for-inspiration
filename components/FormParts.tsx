@@ -343,28 +343,51 @@ export function TagField({ draft }: { draft: Draft }) {
   const { d, patch } = draft;
   const { tags } = useStore();
   const wrapRef = useRef<HTMLDivElement>(null);
+  const measureRef = useRef<HTMLDivElement>(null);
   const [editing, setEditing] = useState(false);
   const [open, setOpen] = useState(false);
-  const [overflow, setOverflow] = useState(false);
+  // How many tags fit in two rows alongside the "..." button; null = everything fits.
+  const [visible, setVisible] = useState<number | null>(null);
   const [panel, setPanel] = useState<null | { tag: Tag | null }>(null);
-  const expanded = open || editing;
   const toggle = (id: string) => patch({ tags: d.tags.includes(id) ? d.tags.filter((t) => t !== id) : [...d.tags, id] });
 
+  // Collapse by rendering fewer tags (not by max-height + overflow), so rows of any
+  // height — e.g. CJK names make a row 37px instead of 34px — are never clipped.
   useLayoutEffect(() => {
-    const el = wrapRef.current;
-    if (!el) return;
-    const measure = () => {
-      const styles = window.getComputedStyle(el);
-      const row = 34;
-      const gap = parseFloat(styles.rowGap || styles.gap) || 8;
-      const cap = row * 2 + gap;
-      setOverflow(el.scrollHeight > cap + 1);
+    const wrap = wrapRef.current;
+    const measure = measureRef.current;
+    if (!wrap || !measure) return;
+    const update = () => {
+      const width = wrap.clientWidth;
+      const nodes = Array.from(measure.children) as HTMLElement[];
+      const tagWidths = nodes.slice(0, -2).map((n) => n.getBoundingClientRect().width);
+      const [addW, moreW] = nodes.slice(-2).map((n) => n.getBoundingClientRect().width);
+      const rows = (widths: number[]) => {
+        let count = 0;
+        let x = 0;
+        for (const w of widths) {
+          if (count && x + 8 + w <= width - 1) x += 8 + w;
+          else { count++; x = w; }
+        }
+        return count;
+      };
+      if (rows([...tagWidths, addW]) <= 2) {
+        setVisible(null);
+        return;
+      }
+      let count = tagWidths.length;
+      while (count > 0 && rows([...tagWidths.slice(0, count), moreW]) > 2) count--;
+      setVisible(count);
     };
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(el);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(wrap);
+    ro.observe(measure);
     return () => ro.disconnect();
-  }, [tags, expanded]);
+  }, [tags]);
+
+  const collapsed = !open && !editing && visible !== null;
+  const shown = collapsed ? tags.slice(0, visible) : tags;
 
   return (
     <div className="field">
@@ -374,26 +397,29 @@ export function TagField({ draft }: { draft: Draft }) {
           <IconPencil />
         </button>
       </div>
-      <div
-        ref={wrapRef}
-        className={`tag-wrap${expanded ? "" : " is-collapsed"}`}
-      >
-        {tags.map((t) => (
+      <div className="tag-wrap" ref={wrapRef}>
+        {shown.map((t) => (
           <TagPill key={t.id} tag={t} on={d.tags.includes(t.id)} editing={editing}
             onClick={() => (editing ? setPanel({ tag: t }) : toggle(t.id))} />
         ))}
-        <button type="button" className="tag-add" aria-label="Add category" onClick={() => setPanel({ tag: null })}>
-          <IconPlus size={20} strokeWidth={1} />
-        </button>
+        {collapsed ? (
+          <button type="button" className="tag-more" aria-label="Show all categories" aria-expanded={false} onClick={() => setOpen(true)}>
+            <IconMore size={20} />
+          </button>
+        ) : (
+          <button type="button" className="tag-add" aria-label="Add category" onClick={() => setPanel({ tag: null })}>
+            <IconPlus size={20} strokeWidth={1} />
+          </button>
+        )}
+        <div className="tag-measure" ref={measureRef} aria-hidden inert>
+          {tags.map((t) => <TagPill key={t.id} tag={t} on={false} onClick={() => {}} />)}
+          <span className="tag-add" />
+          <span className="tag-more" />
+        </div>
       </div>
-      {overflow && !editing && (
-        <button
-          type="button"
-          className="tag-more"
-          aria-expanded={open}
-          onClick={() => setOpen((v) => !v)}
-        >
-          {open ? "Show less" : "More"}
+      {open && !editing && visible !== null && (
+        <button type="button" className="tag-less" aria-expanded onClick={() => setOpen(false)}>
+          Show less
         </button>
       )}
       <Drawer open={!!panel} onClose={() => setPanel(null)} label={panel?.tag ? "Edit Classify Tag" : "Add Classify Tag"} sub>
