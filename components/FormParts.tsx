@@ -339,32 +339,75 @@ export function SubClose({ children }: { children: (close: () => void) => React.
 }
 
 /* ---------- Categories (Classify Tag) ---------- */
+/** Greedily packs item widths into `rows` flex-wrapped lines (mirrors real flex-wrap layout) and
+ * reports how many fit, optionally reserving trailing space on the last line for a "more" control. */
+function packRows(widths: number[], containerWidth: number, gap: number, rows: number, reserve = 0) {
+  let row = 0;
+  let used = 0;
+  let count = 0;
+  for (let i = 0; i < widths.length; i++) {
+    const w = widths[i];
+    const limit = containerWidth - (row === rows - 1 ? reserve : 0);
+    const cost = used === 0 ? w : used + gap + w;
+    if (cost <= limit) {
+      used = cost;
+      count++;
+      continue;
+    }
+    if (row < rows - 1) {
+      row++;
+      used = w;
+      count++;
+      continue;
+    }
+    return { count, overflow: true };
+  }
+  return { count, overflow: false };
+}
+
 export function TagField({ draft }: { draft: Draft }) {
   const { d, patch } = draft;
   const { tags } = useStore();
   const wrapRef = useRef<HTMLDivElement>(null);
+  const measureRef = useRef<HTMLDivElement>(null);
   const [editing, setEditing] = useState(false);
   const [open, setOpen] = useState(false);
   const [overflow, setOverflow] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(Infinity);
   const [panel, setPanel] = useState<null | { tag: Tag | null }>(null);
   const expanded = open || editing;
   const toggle = (id: string) => patch({ tags: d.tags.includes(id) ? d.tags.filter((t) => t !== id) : [...d.tags, id] });
 
   useLayoutEffect(() => {
-    const el = wrapRef.current;
-    if (!el) return;
-    const measure = () => {
-      const styles = window.getComputedStyle(el);
-      const row = 34;
-      const gap = parseFloat(styles.rowGap || styles.gap) || 8;
-      const cap = row * 2 + gap;
-      setOverflow(el.scrollHeight > cap + 1);
+    const wrap = wrapRef.current;
+    const measure = measureRef.current;
+    if (!wrap || !measure) return;
+    const update = () => {
+      const containerWidth = wrap.clientWidth;
+      if (!containerWidth) return;
+      const styles = window.getComputedStyle(wrap);
+      const gap = parseFloat(styles.columnGap || styles.gap) || 8;
+      const nodes = Array.from(measure.children) as HTMLElement[];
+      const tagWidths = nodes.slice(0, tags.length).map((n) => n.getBoundingClientRect().width);
+      const addWidth = nodes[tags.length]?.getBoundingClientRect().width ?? 34;
+      const full = packRows([...tagWidths, addWidth], containerWidth, gap, 2);
+      if (!full.overflow) {
+        setOverflow(false);
+        setVisibleCount(tags.length);
+        return;
+      }
+      const trimmed = packRows(tagWidths, containerWidth, gap, 2, addWidth + gap);
+      setOverflow(true);
+      setVisibleCount(trimmed.count);
     };
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(el);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(wrap);
     return () => ro.disconnect();
-  }, [tags, expanded]);
+  }, [tags]);
+
+  const collapsed = !expanded && overflow;
+  const visibleTags = collapsed ? tags.slice(0, visibleCount) : tags;
 
   return (
     <div className="field">
@@ -374,26 +417,31 @@ export function TagField({ draft }: { draft: Draft }) {
           <IconPencil />
         </button>
       </div>
-      <div
-        ref={wrapRef}
-        className={`tag-wrap${expanded ? "" : " is-collapsed"}`}
-      >
-        {tags.map((t) => (
-          <TagPill key={t.id} tag={t} on={d.tags.includes(t.id)} editing={editing}
-            onClick={() => (editing ? setPanel({ tag: t }) : toggle(t.id))} />
-        ))}
-        <button type="button" className="tag-add" aria-label="Add category" onClick={() => setPanel({ tag: null })}>
-          <IconPlus size={20} strokeWidth={1} />
-        </button>
+      <div style={{ position: "relative" }}>
+        <div ref={wrapRef} className="tag-wrap">
+          {visibleTags.map((t) => (
+            <TagPill key={t.id} tag={t} on={d.tags.includes(t.id)} editing={editing}
+              onClick={() => (editing ? setPanel({ tag: t }) : toggle(t.id))} />
+          ))}
+          {!collapsed && (
+            <button type="button" className="tag-add" aria-label="Add category" onClick={() => setPanel({ tag: null })}>
+              <IconPlus size={20} strokeWidth={1} />
+            </button>
+          )}
+          {collapsed && (
+            <button type="button" className="tag-more-inline" aria-label="Show all tags" aria-expanded={false} onClick={() => setOpen(true)}>
+              <IconMore size={20} />
+            </button>
+          )}
+        </div>
+        <div ref={measureRef} aria-hidden className="tag-wrap" style={{ position: "absolute", visibility: "hidden", pointerEvents: "none", left: 0, right: 0, top: 0, zIndex: -1 }}>
+          {tags.map((t) => <TagPill key={t.id} tag={t} on={d.tags.includes(t.id)} editing={editing} onClick={() => {}} />)}
+          <button type="button" className="tag-add" tabIndex={-1}><IconPlus size={20} strokeWidth={1} /></button>
+        </div>
       </div>
-      {overflow && !editing && (
-        <button
-          type="button"
-          className="tag-more"
-          aria-expanded={open}
-          onClick={() => setOpen((v) => !v)}
-        >
-          {open ? "Show less" : "More"}
+      {expanded && overflow && !editing && (
+        <button type="button" className="tag-more" aria-expanded={true} onClick={() => setOpen(false)}>
+          Show less
         </button>
       )}
       <Drawer open={!!panel} onClose={() => setPanel(null)} label={panel?.tag ? "Edit Classify Tag" : "Add Classify Tag"} sub>
