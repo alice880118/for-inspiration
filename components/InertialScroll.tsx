@@ -39,6 +39,8 @@ export function useInertialScroll<T extends HTMLElement>(axis: Axis = "x") {
     const drag: { current: DragState | null } = { current: null };
     const samples: { t: number; s: number }[] = [];
     let raf: number | null = null;
+    let dragFrame: number | null = null;
+    let pendingScroll: number | null = null;
     let skipClick = false;
     const friction = axis === "x" ? FRICTION_X : FRICTION_Y;
     const maxVelocity = axis === "x" ? MAX_VELOCITY_X : MAX_VELOCITY_Y;
@@ -71,6 +73,25 @@ export function useInertialScroll<T extends HTMLElement>(axis: Axis = "x") {
         raf = null;
       }
       el.classList.remove("is-gliding");
+    };
+
+    const cancelDragFrame = () => {
+      if (dragFrame !== null) {
+        window.cancelAnimationFrame(dragFrame);
+        dragFrame = null;
+      }
+    };
+
+    const flushDragScroll = () => {
+      dragFrame = null;
+      if (pendingScroll === null) return;
+      setScroll(pendingScroll);
+      pendingScroll = null;
+    };
+
+    const scheduleDragScroll = (value: number) => {
+      pendingScroll = value;
+      if (dragFrame === null) dragFrame = window.requestAnimationFrame(flushDragScroll);
     };
 
     const snapToNearest = () => {
@@ -144,6 +165,8 @@ export function useInertialScroll<T extends HTMLElement>(axis: Axis = "x") {
     const onDown = (e: PointerEvent) => {
       if ((e.pointerType === "mouse" && e.button !== 0) || isEditable(e.target) || getMax() <= 0) return;
       cancelMomentum();
+      cancelDragFrame();
+      pendingScroll = null;
       const scroll = getScroll();
       samples.length = 0;
       remember(scroll);
@@ -183,7 +206,7 @@ export function useInertialScroll<T extends HTMLElement>(axis: Axis = "x") {
       if (e.cancelable) e.preventDefault();
       const max = Math.max(0, getMax());
       const next = Math.max(0, Math.min(max, d.startScroll - primary));
-      setScroll(next);
+      scheduleDragScroll(next);
 
       const now = performance.now();
       const dt = Math.max(1, now - d.lastTime);
@@ -198,6 +221,8 @@ export function useInertialScroll<T extends HTMLElement>(axis: Axis = "x") {
       if (!d || d.pointerId !== e.pointerId) return;
       drag.current = null;
       el.classList.remove("is-dragging");
+      cancelDragFrame();
+      flushDragScroll();
       const fling = sampledVelocity();
       if (d.locked === axis && d.moved && Math.abs(fling) > MIN_VELOCITY) startMomentum(fling);
       else if (d.locked === axis && d.moved && axis === "x") snapToNearest();
@@ -220,6 +245,7 @@ export function useInertialScroll<T extends HTMLElement>(axis: Axis = "x") {
 
     return () => {
       cancelMomentum();
+      cancelDragFrame();
       el.removeEventListener("pointerdown", onDown);
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", finish);
