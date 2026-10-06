@@ -94,28 +94,6 @@ export function useInertialScroll<T extends HTMLElement>(axis: Axis = "x") {
       if (dragFrame === null) dragFrame = window.requestAnimationFrame(flushDragScroll);
     };
 
-    const snapToNearest = () => {
-      if (axis !== "x") return;
-      const children = [...el.children] as HTMLElement[];
-      if (!children.length) return;
-      const box = el.getBoundingClientRect();
-      const pad = parseFloat(window.getComputedStyle(el).paddingLeft) || 0;
-      const current = getScroll();
-      let target = current;
-      let best = Number.POSITIVE_INFINITY;
-      for (const child of children) {
-        const childBox = child.getBoundingClientRect();
-        const next = current + childBox.left - box.left - pad;
-        const distance = Math.abs(next - current);
-        if (distance < best) {
-          best = distance;
-          target = next;
-        }
-      }
-      const max = Math.max(0, getMax());
-      el.scrollTo({ left: Math.max(0, Math.min(max, target)), behavior: "smooth" });
-    };
-
     const startMomentum = (initialVelocity: number) => {
       let velocity = Math.max(-maxVelocity, Math.min(maxVelocity, initialVelocity));
       if (Math.abs(velocity) <= MIN_VELOCITY) return;
@@ -142,7 +120,6 @@ export function useInertialScroll<T extends HTMLElement>(axis: Axis = "x") {
         } else {
           raf = null;
           el.classList.remove("is-gliding");
-          if (axis === "x") snapToNearest();
         }
       };
 
@@ -225,7 +202,6 @@ export function useInertialScroll<T extends HTMLElement>(axis: Axis = "x") {
       flushDragScroll();
       const fling = sampledVelocity();
       if (d.locked === axis && d.moved && Math.abs(fling) > MIN_VELOCITY) startMomentum(fling);
-      else if (d.locked === axis && d.moved && axis === "x") snapToNearest();
       window.setTimeout(() => {
         skipClick = false;
       }, 0);
