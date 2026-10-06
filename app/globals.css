@@ -498,7 +498,7 @@ a { color: inherit; text-decoration: none; }
 
 /* ============ Toast / modal ============ */
 .toast {
-  position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(130px + var(--safe-bottom)); z-index: 90;
+  position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(162px + var(--safe-bottom)); z-index: 90;
   width: max-content; max-width: min(370px, calc(100% - 32px));
   animation: toast-in .38s cubic-bezier(.22,.82,.2,1);
 }
