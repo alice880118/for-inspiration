@@ -91,7 +91,7 @@
   position: fixed;
   left: 50%;
   transform: translateX(-50%);
-  top: 50px;
+  top: calc(var(--safe-top) + 10px);
   width: calc(100% - 32px);
   max-width: 370px;
   z-index: 70;
